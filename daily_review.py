@@ -22,8 +22,6 @@ except Exception as e:
 try:
     df_prev = ak.stock_zt_pool_previous_em(date=today)
     print(f"昨日涨停池: {len(df_prev)}只")
-    print(f"昨日涨停池列名: {list(df_prev.columns)}")
-    print(f"昨日涨停池前3行代码: {list(df_prev['代码'].head(3))}")
 except Exception as e:
     print(f"昨日涨停失败: {e}")
     df_prev = pd.DataFrame()
@@ -56,19 +54,19 @@ except Exception as e:
     print(f"大盘分时失败: {e}")
     index_map = {}
 
-# 5. 获取全市场行情（批量获取，只请求一次）
+# 5. 获取全市场行情（用新浪财经接口）
 spot_map = {}
+
+# 方案A: 新浪全市场行情
 try:
-    print("正在获取全市场行情...")
-    df_spot = ak.stock_zh_a_spot_em()
-    print(f"全市场行情获取成功，共{len(df_spot)}行")
-    print(f"全市场行情列名: {list(df_spot.columns)}")
-    print(f"全市场行情前3行代码: {list(df_spot['代码'].head(3))}")
-    print(f"全市场行情前3行今开: {list(df_spot['今开'].head(3))}")
+    print("正在获取新浪全市场行情...")
+    df_spot = ak.stock_zh_a_spot()
+    print(f"新浪全市场行情获取成功，共{len(df_spot)}行")
+    print(f"新浪行情列名: {list(df_spot.columns)}")
 
     for _, row in df_spot.iterrows():
-        code_raw = row.get("代码", "")
-        code = str(code_raw).zfill(6)
+        code_raw = str(row.get("代码", "")).strip()
+        code = code_raw[-6:] if len(code_raw) >= 6 else code_raw.zfill(6)
         try:
             open_p = float(row.get("今开", 0))
             high_p = float(row.get("最高", 0))
@@ -77,12 +75,40 @@ try:
                 spot_map[code] = {"open": open_p, "high": high_p, "low": low_p}
         except:
             pass
-    print(f"全市场行情解析完成，spot_map共{len(spot_map)}只股票")
-    print(f"spot_map前5个key: {list(spot_map.keys())[:5]}")
+    print(f"新浪行情解析完成，spot_map共{len(spot_map)}只股票")
 except Exception as e:
-    print(f"全市场行情获取失败: {e}")
+    print(f"新浪全市场行情获取失败: {e}")
     import traceback
     traceback.print_exc()
+
+# 方案B: 如果新浪也失败，用新浪日K线逐个获取
+if len(spot_map) == 0 and not df_prev.empty:
+    print("新浪全市场行情失败，改用逐个获取日K线...")
+    for idx, row in df_prev.iterrows():
+        code = str(row["代码"]).zfill(6)
+        if code.startswith(("8", "9", "4")):
+            continue
+        if code.startswith("6"):
+            sina_code = f"sh{code}"
+        else:
+            sina_code = f"sz{code}"
+        try:
+            df_daily = ak.stock_zh_a_daily(symbol=sina_code, start_date=today, end_date=today, adjust="")
+            if df_daily is not None and len(df_daily) > 0:
+                latest = df_daily.iloc[-1]
+                spot_map[code] = {
+                    "open": float(latest["open"]),
+                    "high": float(latest["high"]),
+                    "low": float(latest["low"])
+                }
+                print(f"  {code} {row['名称']} 日K线获取成功")
+            time.sleep(0.3)
+        except Exception as e:
+            print(f"  {code} {row['名称']} 日K线获取失败: {e}")
+            time.sleep(0.3)
+    print(f"逐个获取完成，spot_map共{len(spot_map)}只股票")
+
+print(f"最终spot_map共{len(spot_map)}只股票")
 
 # ===== 工具函数 =====
 def parse_hm(t):
@@ -233,7 +259,7 @@ if not df_zt.empty:
     weak_sectors = [s for s in sector_analysis if s["等级"] == "弱势板块"]
     print(f"板块分析: 强势{len(strong_sectors)}个, 弱势{len(weak_sectors)}个")
 
-# ===== 昨日涨停表现分类（批量匹配） =====
+# ===== 昨日涨停表现分类 =====
 if not df_prev.empty:
     print(f"开始匹配昨日涨停数据，spot_map有{len(spot_map)}只，df_prev有{len(df_prev)}只")
 
