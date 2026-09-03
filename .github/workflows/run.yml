@@ -1,0 +1,21 @@
+name: 每日涨停复盘
+
+on:
+  schedule:
+    # 北京时间工作日 15:35 自动运行（UTC 07:35）
+    - cron: '35 7 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install akshare pandas requests tabulate
+      - run: python daily_review.py
+        env:
+          MAIL_USER: ${{ secrets.MAIL_USER }}
+          MAIL_PASS: ${{ secrets.MAIL_PASS }}
