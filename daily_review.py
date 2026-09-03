@@ -22,6 +22,8 @@ except Exception as e:
 try:
     df_prev = ak.stock_zt_pool_previous_em(date=today)
     print(f"昨日涨停池: {len(df_prev)}只")
+    print(f"昨日涨停池列名: {list(df_prev.columns)}")
+    print(f"昨日涨停池前3行代码: {list(df_prev['代码'].head(3))}")
 except Exception as e:
     print(f"昨日涨停失败: {e}")
     df_prev = pd.DataFrame()
@@ -53,6 +55,34 @@ try:
 except Exception as e:
     print(f"大盘分时失败: {e}")
     index_map = {}
+
+# 5. 获取全市场行情（批量获取，只请求一次）
+spot_map = {}
+try:
+    print("正在获取全市场行情...")
+    df_spot = ak.stock_zh_a_spot_em()
+    print(f"全市场行情获取成功，共{len(df_spot)}行")
+    print(f"全市场行情列名: {list(df_spot.columns)}")
+    print(f"全市场行情前3行代码: {list(df_spot['代码'].head(3))}")
+    print(f"全市场行情前3行今开: {list(df_spot['今开'].head(3))}")
+
+    for _, row in df_spot.iterrows():
+        code_raw = row.get("代码", "")
+        code = str(code_raw).zfill(6)
+        try:
+            open_p = float(row.get("今开", 0))
+            high_p = float(row.get("最高", 0))
+            low_p = float(row.get("最低", 0))
+            if open_p > 0:
+                spot_map[code] = {"open": open_p, "high": high_p, "low": low_p}
+        except:
+            pass
+    print(f"全市场行情解析完成，spot_map共{len(spot_map)}只股票")
+    print(f"spot_map前5个key: {list(spot_map.keys())[:5]}")
+except Exception as e:
+    print(f"全市场行情获取失败: {e}")
+    import traceback
+    traceback.print_exc()
 
 # ===== 工具函数 =====
 def parse_hm(t):
@@ -203,44 +233,32 @@ if not df_zt.empty:
     weak_sectors = [s for s in sector_analysis if s["等级"] == "弱势板块"]
     print(f"板块分析: 强势{len(strong_sectors)}个, 弱势{len(weak_sectors)}个")
 
-# ===== 昨日涨停表现分类（用分时数据接口） =====
+# ===== 昨日涨停表现分类（批量匹配） =====
 if not df_prev.empty:
+    print(f"开始匹配昨日涨停数据，spot_map有{len(spot_map)}只，df_prev有{len(df_prev)}只")
+
+    match_count = 0
     open_list, high_list, low_list = [], [], []
-    success_count, fail_count = 0, 0
 
     for idx, row in df_prev.iterrows():
-        code = str(row["代码"]).zfill(6)
-        open_p = high_p = low_p = None
+        code_raw = row.get("代码", "")
+        code = str(code_raw).zfill(6)
 
-        if not code.startswith(("8", "9", "4")):
-            try:
-                df_min = ak.stock_zh_a_hist_min_em(
-                    symbol=code, period="1",
-                    start_date=f"{today_str} 09:30:00",
-                    end_date=f"{today_str} 15:00:00"
-                )
-                if df_min is not None and len(df_min) > 0:
-                    open_p = float(df_min.iloc[0]["开盘"])
-                    high_p = float(df_min["最高"].max())
-                    low_p = float(df_min["最低"].min())
-                    success_count += 1
-                    print(f"  {code} {row['名称']} 成功: 开{open_p} 高{high_p} 低{low_p}")
-                else:
-                    fail_count += 1
-                    print(f"  {code} {row['名称']} 分时数据为空")
-            except Exception as e:
-                fail_count += 1
-                print(f"  {code} {row['名称']} 获取失败: {e}")
+        data = spot_map.get(code, None)
+        if data:
+            open_list.append(data["open"])
+            high_list.append(data["high"])
+            low_list.append(data["low"])
+            match_count += 1
         else:
-            fail_count += 1
-            print(f"  {code} {row['名称']} 北交所跳过")
+            open_list.append(None)
+            high_list.append(None)
+            low_list.append(None)
+            if idx < 5:
+                print(f"  未匹配: 代码原始值={code_raw}, 转换后={code}")
 
-        open_list.append(open_p)
-        high_list.append(high_p)
-        low_list.append(low_p)
-        time.sleep(0.15)
+    print(f"昨日涨停数据匹配完成: 匹配{match_count}只, 未匹配{len(df_prev)-match_count}只")
 
-    print(f"昨日涨停分时数据: 成功{success_count}只, 失败{fail_count}只")
     df_prev["今开"] = open_list
     df_prev["最高"] = high_list
     df_prev["最低"] = low_list
