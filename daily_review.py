@@ -2,6 +2,7 @@ import akshare as ak
 import pandas as pd
 import os
 import smtplib
+import time
 from email.mime.text import MIMEText
 from email.header import Header
 from datetime import datetime
@@ -25,19 +26,7 @@ except Exception as e:
     print(f"昨日涨停失败: {e}")
     df_prev = pd.DataFrame()
 
-# 3. 获取全市场行情
-try:
-    df_spot = ak.stock_zh_a_spot_em()
-    spot_map = {}
-    for _, row in df_spot.iterrows():
-        code = str(row["代码"]).zfill(6)
-        spot_map[code] = {"open": float(row["今开"]), "high": float(row["最高"]), "low": float(row["最低"])}
-    print(f"全市场行情: {len(spot_map)}只")
-except Exception as e:
-    print(f"全市场行情失败: {e}")
-    spot_map = {}
-
-# 4. 获取当日公告
+# 3. 获取当日公告
 try:
     df_notice = ak.stock_notice_report(symbol="全部", date=today)
     good_kw = ["预增", "预盈", "业绩增长", "扭亏", "中标", "合同", "并购", "重组",
@@ -51,7 +40,7 @@ except Exception as e:
     print(f"公告失败: {e}")
     notice_codes = set()
 
-# 5. 获取大盘分时数据
+# 4. 获取大盘分时数据
 try:
     df_index = ak.index_zh_a_hist_min_em(symbol="000001", period="1",
         start_date=f"{today_str} 09:30:00", end_date=f"{today_str} 15:00:00")
@@ -73,6 +62,11 @@ def parse_hm(t):
         return f"{int(text.split(':')[0]):02d}:{int(text.split(':')[1]):02d}"
     digits = "".join(c for c in text if c.isdigit()).zfill(6)
     return f"{digits[:2]}:{digits[2:4]}"
+
+def time_to_minutes(hm):
+    if hm is None: return 999
+    h, m = int(hm[:2]), int(hm[3:5])
+    return h * 60 + m
 
 def index_drop_rebound(start_hm, end_hm):
     if not index_map or not start_hm or not end_hm: return 0, 0
@@ -162,13 +156,85 @@ if not df_zt.empty:
     df_zt["股性"] = df_zt.apply(cls_active, axis=1)
     df_zt["驱动原因"] = df_zt.apply(cls_reason, axis=1)
     df_zt["板块地位"] = df_zt.apply(cls_position, axis=1)
+    df_zt["封板分钟"] = df_zt["首次封板时间"].apply(lambda x: time_to_minutes(parse_hm(x)))
     print("当日涨停分类完成")
 
-# ===== 昨日涨停表现分类 =====
+# ===== 板块强弱分析 =====
+sector_analysis = []
+if not df_zt.empty:
+    for ind in df_zt["所属行业"].unique():
+        ind_df = df_zt[df_zt["所属行业"] == ind]
+        count = len(ind_df)
+        leader = ind_df.sort_values("首次封板时间").iloc[0]
+        leader_name = leader["名称"]
+        leader_time = parse_hm(leader["首次封板时间"])
+        avg_time = ind_df["封板分钟"].mean()
+        one_board_rate = (ind_df["封板结构"] == "一次封板型").sum() / count * 100
+        bad_board_rate = (ind_df["封板结构"] == "烂板型").sum() / count * 100
+        lianban_count = (ind_df["连板数"] >= 2).sum()
+        late_count = (ind_df["封板时间"] == "尾盘偷袭封板").sum()
+
+        score = 0
+        score += count * 2
+        if count >= 3: score += 3
+        if avg_time <= 600: score += 2
+        elif avg_time >= 870: score -= 2
+        if one_board_rate >= 60: score += 2
+        if bad_board_rate >= 30: score -= 2
+        if lianban_count >= 1: score += 1
+        if late_count >= count * 0.5: score -= 2
+
+        if score >= 8: level = "强势板块"
+        elif score >= 3: level = "一般板块"
+        else: level = "弱势板块"
+
+        sector_analysis.append({
+            "行业": ind, "涨停数": count, "评分": score, "等级": level,
+            "领涨龙头": f"{leader_name}({leader_time})",
+            "平均封板": f"{int(avg_time//60)}:{int(avg_time%60):02d}",
+            "一次封板率": f"{one_board_rate:.0f}%",
+            "烂板率": f"{bad_board_rate:.0f}%",
+            "连板数": lianban_count,
+            "尾盘数": late_count
+        })
+
+    sector_analysis.sort(key=lambda x: -x["评分"])
+    strong_sectors = [s for s in sector_analysis if s["等级"] == "强势板块"]
+    weak_sectors = [s for s in sector_analysis if s["等级"] == "弱势板块"]
+    print(f"板块分析: 强势{len(strong_sectors)}个, 弱势{len(weak_sectors)}个")
+
+# ===== 昨日涨停表现分类（逐个获取K线） =====
 if not df_prev.empty:
-    df_prev["今开"] = df_prev["代码"].apply(lambda x: spot_map.get(str(x).zfill(6), {}).get("open"))
-    df_prev["最高"] = df_prev["代码"].apply(lambda x: spot_map.get(str(x).zfill(6), {}).get("high"))
-    df_prev["最低"] = df_prev["代码"].apply(lambda x: spot_map.get(str(x).zfill(6), {}).get("low"))
+    open_list, high_list, low_list = [], [], []
+    success_count, fail_count = 0, 0
+
+    for idx, row in df_prev.iterrows():
+        code = str(row["代码"]).zfill(6)
+        open_p = high_p = low_p = None
+        if not code.startswith(("8", "9", "4")):
+            try:
+                df_k = ak.stock_zh_a_hist(symbol=code, period="daily",
+                                           start_date=today, end_date=today, adjust="")
+                if df_k is not None and len(df_k) > 0:
+                    open_p = float(df_k.iloc[0]["开盘"])
+                    high_p = float(df_k.iloc[0]["最高"])
+                    low_p = float(df_k.iloc[0]["最低"])
+                    success_count += 1
+                else:
+                    fail_count += 1
+            except Exception as e:
+                fail_count += 1
+        else:
+            fail_count += 1
+        open_list.append(open_p)
+        high_list.append(high_p)
+        low_list.append(low_p)
+        time.sleep(0.2)
+
+    print(f"昨日涨停K线: 成功{success_count}只, 失败{fail_count}只")
+    df_prev["今开"] = open_list
+    df_prev["最高"] = high_list
+    df_prev["最低"] = low_list
     df_prev["昨收"] = df_prev["最新价"] / (1 + df_prev["涨跌幅"] / 100)
     df_prev["开盘涨幅"] = (df_prev["今开"] - df_prev["昨收"]) / df_prev["昨收"] * 100
     df_prev["最高涨幅"] = (df_prev["最高"] - df_prev["昨收"]) / df_prev["昨收"] * 100
@@ -209,10 +275,11 @@ if not df_zt.empty:
         elif score <= -2: black_list.append((row["名称"], row["代码"], row["所属行业"], score, "、".join(reasons)))
     red_list.sort(key=lambda x: -x[3]); black_list.sort(key=lambda x: x[3])
 
-# ===== 生成报告（纯文本） =====
+# ===== 生成报告 =====
 lines = []
 lines.append(f"===== 每日涨停复盘报告 {today} =====")
 lines.append("")
+
 lines.append("【一、当日涨停总览】")
 if not df_zt.empty:
     lines.append(f"当日共涨停 {len(df_zt)} 只")
@@ -224,14 +291,38 @@ if not df_zt.empty:
         for k, v in df_zt[col].value_counts().items():
             lines.append(f"  {k}: {v}只")
         lines.append("")
-    lines.append("[8.热门板块TOP8]")
-    for k, v in df_zt["所属行业"].value_counts().head(8).items():
-        lines.append(f"  {k}: {v}只")
 else:
     lines.append("当日暂无涨停数据")
 lines.append("")
 
-lines.append("【二、打板红黑榜】")
+lines.append("【二、板块强弱分析】")
+lines.append("")
+if sector_analysis:
+    lines.append(f"共涉及 {len(sector_analysis)} 个行业板块")
+    lines.append("")
+    if strong_sectors:
+        lines.append("■ 强势板块（重点关注）")
+        for s in strong_sectors[:8]:
+            lines.append(f"  [{s['行业']}] 评分:{s['评分']} 涨停{s['涨停数']}只")
+            lines.append(f"    领涨龙头: {s['领涨龙头']}")
+            lines.append(f"    平均封板:{s['平均封板']} 一次封板率:{s['一次封板率']} 连板:{s['连板数']}只")
+        lines.append("")
+    if weak_sectors:
+        lines.append("■ 弱势板块（谨慎参与）")
+        for s in weak_sectors[:8]:
+            lines.append(f"  [{s['行业']}] 评分:{s['评分']} 涨停{s['涨停数']}只")
+            lines.append(f"    领涨龙头: {s['领涨龙头']}")
+            lines.append(f"    平均封板:{s['平均封板']} 烂板率:{s['烂板率']} 尾盘封板:{s['尾盘数']}只")
+        lines.append("")
+    lines.append("■ 板块强弱总览（按评分排序）")
+    for s in sector_analysis:
+        mark = "★" if s["等级"] == "强势板块" else ("☆" if s["等级"] == "弱势板块" else "○")
+        lines.append(f"  {mark} {s['行业']}: {s['涨停数']}只涨停, 评分{s['评分']} ({s['等级']})")
+else:
+    lines.append("暂无板块数据")
+lines.append("")
+
+lines.append("【三、打板红黑榜】")
 lines.append("")
 if red_list:
     lines.append("■ 红榜（优选打板池）")
@@ -247,7 +338,7 @@ if not red_list and not black_list:
     lines.append("暂无符合条件的个股")
     lines.append("")
 
-lines.append("【三、昨日涨停今日表现】")
+lines.append("【四、昨日涨停今日表现】")
 if not df_prev.empty:
     valid = df_prev[df_prev["卖出类型"] != "数据缺失"]
     lines.append(f"昨日涨停 {len(df_prev)} 只，有效分析 {len(valid)} 只")
@@ -286,17 +377,13 @@ if not df_prev.empty:
         lines.append("  坑人股昨日连板数分布:")
         for k, v in bad2["昨日连板数"].value_counts().items():
             lines.append(f"    {int(k)}连板: {v}只")
-        lines.append("")
-        lines.append("  坑人股所属行业分布:")
-        for k, v in bad2["所属行业"].value_counts().head(8).items():
-            lines.append(f"    {k}: {v}只")
     else:
         lines.append("[4.今日无坑人型涨停，市场情绪较好]")
 else:
     lines.append("暂无昨日涨停数据")
 lines.append("")
 
-lines.append("【四、打板策略总结与避坑指南】")
+lines.append("【五、打板策略总结与避坑指南】")
 lines.append("")
 lines.append("■ 优选打板特征（好卖概率高）")
 lines.append("  1.早盘10点前封板，封板结构扎实（一次封板或大盘回封型）")
@@ -304,6 +391,7 @@ lines.append("  2.板块领涨龙头，所属板块涨停家数>=3家，有板�
 lines.append("  3.有明确利好驱动（公告利好或板块政策利好）")
 lines.append("  4.连板股或近期活跃股，股性好")
 lines.append("  5.小盘股（<50亿），资金容易拉升")
+lines.append("  6.优先选择强势板块内的个股，避开弱势板块")
 lines.append("")
 lines.append("■ 坚决规避特征（坑人概率高）")
 lines.append("  1.尾盘偷袭封板（14:45后），非实力资金所为")
@@ -311,6 +399,7 @@ lines.append("  2.烂板（炸板>=4次），多空分歧巨大")
 lines.append("  3.板块补涨后排，跟风属性强，龙头一倒就崩")
 lines.append("  4.无板块支撑的个股独立涨停，缺乏持续性")
 lines.append("  5.大盘股（>200亿），需要大量资金才能拉升")
+lines.append("  6.弱势板块内的个股，板块整体缺乏持续性")
 lines.append("")
 lines.append("■ 好卖涨停的两个核心特征")
 lines.append("  1.直接高开：次日高开>=3%，且开盘后继续冲高，全天均价在红盘上方")
@@ -324,7 +413,7 @@ lines.append("  3.冲高闷杀：短暂冲高>=2%后快速回落，收盘跌>=1%
 report = "\n".join(lines)
 print(f"报告生成完成，共{len(report)}字符")
 
-# ===== 邮件推送（纯文本格式） =====
+# ===== 邮件推送 =====
 mail_user = os.environ.get("MAIL_USER", "")
 mail_pass = os.environ.get("MAIL_PASS", "")
 
