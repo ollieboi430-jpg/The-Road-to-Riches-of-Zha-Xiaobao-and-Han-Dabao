@@ -203,7 +203,7 @@ if not df_zt.empty:
     weak_sectors = [s for s in sector_analysis if s["等级"] == "弱势板块"]
     print(f"板块分析: 强势{len(strong_sectors)}个, 弱势{len(weak_sectors)}个")
 
-# ===== 昨日涨停表现分类（逐个获取K线） =====
+# ===== 昨日涨停表现分类（用分时数据接口） =====
 if not df_prev.empty:
     open_list, high_list, low_list = [], [], []
     success_count, fail_count = 0, 0
@@ -211,27 +211,36 @@ if not df_prev.empty:
     for idx, row in df_prev.iterrows():
         code = str(row["代码"]).zfill(6)
         open_p = high_p = low_p = None
+
         if not code.startswith(("8", "9", "4")):
             try:
-                df_k = ak.stock_zh_a_hist(symbol=code, period="daily",
-                                           start_date=today, end_date=today, adjust="")
-                if df_k is not None and len(df_k) > 0:
-                    open_p = float(df_k.iloc[0]["开盘"])
-                    high_p = float(df_k.iloc[0]["最高"])
-                    low_p = float(df_k.iloc[0]["最低"])
+                df_min = ak.stock_zh_a_hist_min_em(
+                    symbol=code, period="1",
+                    start_date=f"{today_str} 09:30:00",
+                    end_date=f"{today_str} 15:00:00"
+                )
+                if df_min is not None and len(df_min) > 0:
+                    open_p = float(df_min.iloc[0]["开盘"])
+                    high_p = float(df_min["最高"].max())
+                    low_p = float(df_min["最低"].min())
                     success_count += 1
+                    print(f"  {code} {row['名称']} 成功: 开{open_p} 高{high_p} 低{low_p}")
                 else:
                     fail_count += 1
+                    print(f"  {code} {row['名称']} 分时数据为空")
             except Exception as e:
                 fail_count += 1
+                print(f"  {code} {row['名称']} 获取失败: {e}")
         else:
             fail_count += 1
+            print(f"  {code} {row['名称']} 北交所跳过")
+
         open_list.append(open_p)
         high_list.append(high_p)
         low_list.append(low_p)
-        time.sleep(0.2)
+        time.sleep(0.15)
 
-    print(f"昨日涨停K线: 成功{success_count}只, 失败{fail_count}只")
+    print(f"昨日涨停分时数据: 成功{success_count}只, 失败{fail_count}只")
     df_prev["今开"] = open_list
     df_prev["最高"] = high_list
     df_prev["最低"] = low_list
