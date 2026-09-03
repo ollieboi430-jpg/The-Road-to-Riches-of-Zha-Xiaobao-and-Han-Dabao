@@ -145,8 +145,8 @@ mail_user = os.environ["MAIL_USER"]
 mail_pass = os.environ["MAIL_PASS"]
 
 msg = MIMEText(report, 'markdown', 'utf-8')
-msg['From'] = Header("涨停复盘助手", 'utf-8')
-msg['To'] = Header("你", 'utf-8')
+msg['From'] = mail_user
+msg['To'] = mail_user
 msg['Subject'] = Header(f"每日涨停复盘 {today}", 'utf-8')
 
 try:
