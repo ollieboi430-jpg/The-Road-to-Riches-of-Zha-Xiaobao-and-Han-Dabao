@@ -25,9 +25,14 @@ except:
 
 # 2. 当日涨停多维度精细分类
 def classify_time(t):
-    if not isinstance(t, str):
+    if pd.isna(t):
         return "未知"
-    h, m = int(t.split(":")[0]), int(t.split(":")[1])
+    text = str(t).strip()
+    if ":" in text:
+        h, m = int(text.split(":")[0]), int(text.split(":")[1])
+    else:
+        digits = "".join(ch for ch in text if ch.isdigit()).zfill(6)
+        h, m = int(digits[:2]), int(digits[2:4])
     if h == 9 and m <= 25:
         return "竞价封板"
     elif h == 9 and m <= 30:
