@@ -25,13 +25,14 @@ _BJ = timezone(timedelta(hours=8))
 NOW_BJ = datetime.now(_BJ)
 RUN_CLOCK = NOW_BJ.strftime("%H:%M")          # 实际运行的北京时间 HH:MM
 _now_min = NOW_BJ.hour * 60 + NOW_BJ.minute
-_parser = argparse.ArgumentParser(description="A股涨停复盘：noon午盘 / close收盘")
-_parser.add_argument("--mode", default="close", choices=["noon", "close"],
-                     help="noon=午盘半日复盘，close=全天收盘复盘(默认)")
+_parser = argparse.ArgumentParser(description="A股涨停复盘：noon午盘 / close收盘 / evening晚间监管更新")
+_parser.add_argument("--mode", default="close", choices=["noon", "close", "evening"],
+                     help="noon=午盘半日复盘，close=全天收盘复盘(默认)，evening=晚间更新监管真实名单(黄转红)")
 _args, _ = _parser.parse_known_args()
 RUN_MODE = _args.mode
 IS_NOON = RUN_MODE == "noon"
-MODE_LABEL = "午盘半日复盘" if IS_NOON else "全天收盘复盘"
+IS_EVENING = RUN_MODE == "evening"
+MODE_LABEL = {"noon": "午盘半日复盘", "close": "全天收盘复盘", "evening": "监管名单晚间更新"}[RUN_MODE]
 INDEX_END = "11:30:00" if IS_NOON else "15:00:00"   # 午盘大盘分时只取到上午收盘
 
 # ===== 午盘数据时间窗守卫：涨停池/资金流是“截至调用时刻的累计快照”，无法事后回放 =====
@@ -54,8 +55,8 @@ else:
     SNAPSHOT_TIP = ""
 print(f"========== 当前运行模式：{MODE_LABEL} ({RUN_MODE})，北京时间：{NOW_BJ.strftime('%Y-%m-%d %H:%M:%S')} ==========")
 
-today = datetime.now().strftime("%Y%m%d")
-today_str = datetime.now().strftime("%Y-%m-%d")
+today = os.environ.get("FORCE_DATE", "").strip() or datetime.now().strftime("%Y%m%d")
+today_str = f"{today[:4]}-{today[4:6]}-{today[6:]}" if os.environ.get("FORCE_DATE") else datetime.now().strftime("%Y-%m-%d")
 
 # ===== 非A股交易日直接退出（节假日不发报告；交易日历拿不到时不阻断、照常运行）=====
 def _is_trade_day(d):
@@ -300,24 +301,30 @@ if not df_zt.empty:
     df_zt["封板分钟"] = df_zt["首次封板时间"].apply(lambda x: time_to_minutes(parse_hm(x)))
     print("当日涨停分类完成")
 
-# ===== 监管预警（四层逻辑：技术触发→真实名单→交叉验证→预警分级） =====
+# ===== 监管预警（四层逻辑；收盘close与晚间evening运行，午盘noon跳过）=====
 monitor_result = None
-if MONITOR_AVAILABLE and not df_zt.empty:
-    print("\n===== 监管预警分析 =====")
+if MONITOR_AVAILABLE and not IS_NOON:
+    print("\n===== 监管预警分析（三层交叉验证）=====")
     try:
         monitor_result = monitor.build_monitor_alert(
             zt_df=df_zt,
             today=today,
             state_path="monitor_state.json",
-            fetch_real_list=True  # 第二层：抓取真实监控名单
+            cache_path="monitor_tech_cache.json",
+            fetch_real_list=True,    # 第二层：交易所公告真实名单
+            enable_web_crawl=False,  # 官网爬取为辅源，海外IP默认关闭（公告接口已足够）
         )
         print(f"监管预警完成: 已确认{len(monitor_result['confirmed'])}只, "
               f"触线未监控{len(monitor_result['triggered'])}只, "
-              f"监控中{len(monitor_result['monitoring_list'])}只")
+              f"未触线被监管{len(monitor_result['monitored'])}只, "
+              f"黄转红{len(monitor_result['upgraded'])}只, "
+              f"倒计时{len(monitor_result['monitoring_list'])}只")
     except Exception as e:
         print(f"监管预警失败: {e}")
         import traceback
         traceback.print_exc()
+elif IS_NOON:
+    print("午盘模式跳过监管预警（以收盘/晚间报告为准）")
 
 # ===== 板块强弱分析 =====
 sector_analysis = []
@@ -627,9 +634,10 @@ else:
     lines.append("暂无昨日涨停数据")
 lines.append("")
 
-# 监管预警报告（四层交叉验证）
+# 监管预警报告（三层交叉验证 + 风险分级）
 if monitor_result:
-    lines.append("【七、监管预警（四层交叉验证）】")
+    _sec_title = "【七、监管预警 · 晚间名单更新（黄转红）】" if IS_EVENING else "【七、监管预警（三层交叉验证）】"
+    lines.append(_sec_title)
     lines.append("")
     monitor_report = monitor.generate_report(monitor_result, today)
     lines.append(monitor_report)

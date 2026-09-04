@@ -1,29 +1,27 @@
-name: 涨停复盘-午盘+收盘双复盘
+name: 涨停复盘-午盘+收盘+晚间监管更新
 on:
   schedule:
-    # GitHub cron 为 UTC 时间，北京时间 = UTC+8
-    - cron: '35 3 * * 1-5'   # 北京11:35 午盘半日复盘（上午11:30收盘后）
-    - cron: '35 7 * * 1-5'   # 北京15:35 全天收盘复盘（下午15:00收盘后，原有任务）
+    # GitHub cron 为 UTC，北京时间 = UTC+8
+    - cron: '35 3 * * 1-5'   # 北京11:35 午盘半日复盘
+    - cron: '35 7 * * 1-5'   # 北京15:35 全天收盘复盘（含监管三层交叉，缓存白天触线结果）
+    - cron: '5 11 * * 1-5'   # 北京19:05 晚间监管名单更新（异常波动公告17-19点发布后，黄转红）
   workflow_dispatch:
     inputs:
       mode:
-        description: '手动运行时选择复盘时段'
+        description: '手动运行选择时段'
         type: choice
         options:
           - close
           - noon
+          - evening
         default: close
-
-# 允许本工作流把监管监控状态 monitor_state.json 提交回仓库
 permissions:
   contents: write
-
 jobs:
   noon_review:
-    # 午盘定时触发，或手动选择 noon 时运行
     if: github.event.schedule == '35 3 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'noon')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -35,17 +33,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: 午盘半日复盘
-        run: python daily_review.py --mode noon
+        run: python daily_review_final.py --mode noon
         env:
           MAIL_USER: ${{ secrets.MAIL_USER }}
           MAIL_PASS: ${{ secrets.MAIL_PASS }}
           EM_PROXY_URL: ${{ secrets.EM_PROXY_URL }}
-
   close_review:
-    # 收盘定时触发，或手动选择 close 时运行
     if: github.event.schedule == '35 7 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'close')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -56,23 +52,51 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: 全天收盘复盘（含监管提醒）
-        run: python daily_review.py --mode close
+      - name: 全天收盘复盘（含监管三层交叉验证）
+        run: python daily_review_final.py --mode close
         env:
           MAIL_USER: ${{ secrets.MAIL_USER }}
           MAIL_PASS: ${{ secrets.MAIL_PASS }}
           EM_PROXY_URL: ${{ secrets.EM_PROXY_URL }}
-      - name: 提交监管监控状态（供次日出监管倒计时连续计算）
+      - name: 提交监管状态与触线缓存
         if: always()
         run: |
-          if [ ! -f monitor_state.json ]; then echo "未生成状态文件，跳过"; exit 0; fi
+          if [ ! -f monitor_state.json ] && [ ! -f monitor_tech_cache.json ]; then echo "未生成状态文件，跳过"; exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add monitor_state.json
-          if git diff --staged --quiet; then
-            echo "监控状态无变化，无需提交"
-          else
-            git commit -m "chore: 更新监管重点监控状态 [skip ci]"
+          git add monitor_state.json monitor_tech_cache.json
+          if git diff --staged --quiet; then echo "状态无变化"; else
+            git commit -m "chore: 收盘后更新监管状态与触线缓存 [skip ci]"
             git push origin HEAD:${{ github.ref_name }}
-            echo "监控状态已提交回仓库"
+          fi
+  evening_review:
+    if: github.event.schedule == '5 11 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'evening')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: 晚间监管名单更新（黄转红）
+        run: python daily_review_final.py --mode evening
+        env:
+          MAIL_USER: ${{ secrets.MAIL_USER }}
+          MAIL_PASS: ${{ secrets.MAIL_PASS }}
+          EM_PROXY_URL: ${{ secrets.EM_PROXY_URL }}
+      - name: 提交晚间监管状态
+        if: always()
+        run: |
+          if [ ! -f monitor_state.json ] && [ ! -f monitor_tech_cache.json ]; then echo "未生成状态文件，跳过"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add monitor_state.json monitor_tech_cache.json
+          if git diff --staged --quiet; then echo "状态无变化"; else
+            git commit -m "chore: 晚间更新监管真实名单与状态 [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
           fi

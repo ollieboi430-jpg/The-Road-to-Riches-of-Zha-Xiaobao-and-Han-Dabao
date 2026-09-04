@@ -1,5 +1,6 @@
-akshare
-pandas
-requests
-py_mini_racer
-lxml
+akshare>=1.14.0
+pandas>=2.0.0
+requests>=2.31.0
+lxml>=4.9.0
+py_mini_racer>=0.6.0
+numpy>=1.24.0
