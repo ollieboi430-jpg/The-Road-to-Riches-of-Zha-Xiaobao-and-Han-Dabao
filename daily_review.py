@@ -9,7 +9,7 @@ import json
 from email.mime.text import MIMEText
 from email.header import Header
 from datetime import datetime
-from sector_fund_flow_github import get_sector_fund_flow
+from sector_fund_flow_github import get_sector_fund_flow, FundLookup
 
 today = datetime.now().strftime("%Y%m%d")
 today_str = datetime.now().strftime("%Y-%m-%d")
@@ -73,18 +73,8 @@ try:
     if missing:
         raise RuntimeError(f"行业资金流向缺少字段: {sorted(missing)}")
 
-    for _, row in df_fund.iterrows():
-        name = str(row["板块名称"]).strip()
-        if not name:
-            continue
-        sector_fund_map[name] = {
-            "main_inflow": float(row["主力净流入(亿)"]) * 100000000,
-            "main_ratio": float(row["主力净占比%"]),
-            "super_inflow": 0,
-            "big_inflow": 0,
-            "change_pct": float(row["涨跌幅%"]),
-            "stock_count": 0,
-        }
+    # v2修复：用智能查找器替代手建dict，自动容忍行业名 Ⅱ/Ⅲ后缀、扩展、截断差异
+    sector_fund_map = FundLookup(df_fund)
 
     fund_source = str(df_fund["数据来源"].iloc[0]) if "数据来源" in df_fund.columns else "行业资金流向模块"
     print(f"资金流向获取成功，共{len(sector_fund_map)}个板块")
