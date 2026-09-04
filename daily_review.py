@@ -10,9 +10,35 @@ from email.mime.text import MIMEText
 from email.header import Header
 from datetime import datetime
 from sector_fund_flow_github import get_sector_fund_flow, FundLookup
+# ===== 双复盘模式：--mode noon=午盘半日复盘(11:35) / close=全天收盘复盘(15:35，默认) =====
+import argparse
+_parser = argparse.ArgumentParser(description="A股涨停复盘：noon午盘 / close收盘")
+_parser.add_argument("--mode", default="close", choices=["noon", "close"],
+                     help="noon=午盘半日复盘，close=全天收盘复盘(默认)")
+_args, _ = _parser.parse_known_args()
+RUN_MODE = _args.mode
+IS_NOON = RUN_MODE == "noon"
+MODE_LABEL = "午盘半日复盘" if IS_NOON else "全天收盘复盘"
+INDEX_END = "11:30:00" if IS_NOON else "15:00:00"   # 午盘大盘分时只取到上午收盘
+SNAPSHOT_TIP = ("【午盘快照】数据截至11:30上午收盘，为半日累计；"
+                "下午仍可能炸板/回封、资金继续变化，仅供盘中参考。") if IS_NOON else ""
+print(f"========== 当前运行模式：{MODE_LABEL} ({RUN_MODE}) ==========")
 
 today = datetime.now().strftime("%Y%m%d")
 today_str = datetime.now().strftime("%Y-%m-%d")
+
+# ===== 非A股交易日直接退出（节假日不发报告；交易日历拿不到时不阻断、照常运行）=====
+def _is_trade_day(d):
+    try:
+        _cal = ak.tool_trade_date_hist_sina()
+        _days = set(pd.to_datetime(_cal["trade_date"]).dt.strftime("%Y%m%d"))
+        return d in _days
+    except Exception as _e:
+        print(f"交易日历获取失败({_e})，跳过交易日检查，继续执行")
+        return True
+if not _is_trade_day(today):
+    print(f"{today} 非A股交易日，跳过本次复盘")
+    raise SystemExit(0)
 
 # 1. 获取当日涨停池
 try:
@@ -47,7 +73,7 @@ except Exception as e:
 # 4. 获取大盘分时数据
 try:
     df_index = ak.index_zh_a_hist_min_em(symbol="000001", period="1",
-        start_date=f"{today_str} 09:30:00", end_date=f"{today_str} 15:00:00")
+        start_date=f"{today_str} 09:30:00", end_date=f"{today_str} {INDEX_END}")
     index_map = {}
     for _, row in df_index.iterrows():
         t = str(row["时间"])
@@ -403,7 +429,10 @@ if not df_zt.empty:
 
 # ===== 生成报告 =====
 lines = []
-lines.append(f"===== 每日涨停复盘报告 {today} =====")
+lines.append(f"===== {MODE_LABEL}报告 {today} =====")
+if SNAPSHOT_TIP:
+    lines.append(SNAPSHOT_TIP)
+    lines.append("")
 lines.append(f"数据来源: 涨停池(东方财富) + 资金流向({fund_source if fund_source else '未获取到'})")
 lines.append("")
 
@@ -504,7 +533,7 @@ if not red_list and not black_list:
     lines.append("暂无符合条件的个股")
     lines.append("")
 
-lines.append("【六、昨日涨停今日表现】")
+lines.append("【六、昨日涨停今日表现】" + ("（上午盘中，涨跌幅为半日实时）" if IS_NOON else ""))
 if not df_prev.empty:
     valid = df_prev[df_prev["卖出类型"] != "数据缺失"]
     lines.append(f"昨日涨停 {len(df_prev)} 只，有效分析 {len(valid)} 只")
@@ -589,7 +618,7 @@ if mail_user and mail_pass:
     msg = MIMEText(report, 'plain', 'utf-8')
     msg['From'] = mail_user
     msg['To'] = mail_user
-    msg['Subject'] = Header(f"每日涨停复盘 {today}", 'utf-8')
+    msg['Subject'] = Header(f"{MODE_LABEL} {today}", 'utf-8')
     try:
         smtp = smtplib.SMTP_SSL("smtp.qq.com", 465)
         smtp.login(mail_user, mail_pass)
