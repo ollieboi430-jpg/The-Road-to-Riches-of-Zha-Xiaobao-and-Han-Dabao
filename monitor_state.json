@@ -1,1 +1,42 @@
-{}
+{
+  "605398": {
+    "name": "新炬网络",
+    "enter_date": "20260904",
+    "left_days": 10,
+    "index_name": "上证指数",
+    "last_dev": 44.17,
+    "last_win": 30
+  },
+  "605580": {
+    "name": "恒盛能源",
+    "enter_date": "20260904",
+    "left_days": 10,
+    "index_name": "上证指数",
+    "last_dev": 38.02,
+    "last_win": 30
+  },
+  "605577": {
+    "name": "龙版传媒",
+    "enter_date": "20260904",
+    "left_days": 10,
+    "index_name": "上证指数",
+    "last_dev": 70.51,
+    "last_win": 30
+  },
+  "002403": {
+    "name": "爱仕达",
+    "enter_date": "20260904",
+    "left_days": 10,
+    "index_name": "深证成指",
+    "last_dev": 45.2,
+    "last_win": 30
+  },
+  "000892": {
+    "name": "欢瑞世纪",
+    "enter_date": "20260904",
+    "left_days": 10,
+    "index_name": "深证成指",
+    "last_dev": 88.83,
+    "last_win": 30
+  }
+}
