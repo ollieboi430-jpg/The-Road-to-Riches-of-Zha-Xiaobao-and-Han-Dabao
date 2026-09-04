@@ -8,18 +8,67 @@ import re
 import json
 from email.mime.text import MIMEText
 from email.header import Header
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+from sector_fund_flow import get_sector_fund_flow, FundLookup
 
-# 监管预警模块（四层逻辑）
+# 监管预警模块（四层逻辑：技术触发→真实名单→交叉验证→预警分级）
 try:
     import monitor_alert_v2 as monitor
     MONITOR_AVAILABLE = True
 except ImportError:
     MONITOR_AVAILABLE = False
     print("警告: monitor_alert_v2.py 未找到，监管预警功能不可用")
+# ===== 双复盘模式：--mode noon=午盘半日复盘(11:35) / close=全天收盘复盘(15:35，默认) =====
+import argparse
+# 统一用北京时间判断运行窗口（GitHub Actions 服务器默认是 UTC，不能直接用 datetime.now()）
+_BJ = timezone(timedelta(hours=8))
+NOW_BJ = datetime.now(_BJ)
+RUN_CLOCK = NOW_BJ.strftime("%H:%M")          # 实际运行的北京时间 HH:MM
+_now_min = NOW_BJ.hour * 60 + NOW_BJ.minute
+_parser = argparse.ArgumentParser(description="A股涨停复盘：noon午盘 / close收盘")
+_parser.add_argument("--mode", default="close", choices=["noon", "close"],
+                     help="noon=午盘半日复盘，close=全天收盘复盘(默认)")
+_args, _ = _parser.parse_known_args()
+RUN_MODE = _args.mode
+IS_NOON = RUN_MODE == "noon"
+MODE_LABEL = "午盘半日复盘" if IS_NOON else "全天收盘复盘"
+INDEX_END = "11:30:00" if IS_NOON else "15:00:00"   # 午盘大盘分时只取到上午收盘
+
+# ===== 午盘数据时间窗守卫：涨停池/资金流是“截至调用时刻的累计快照”，无法事后回放 =====
+# 纯午盘数据只能在 11:30~13:00（午休）窗口内实时拉取；收盘后补跑拿到的是全天数据
+def _noon_window_status(cur_min):
+    if cur_min < 11*60+30:
+        return ("上午尚未收盘(11:30前)", "当前为盘中实时数据，非完整半日快照")
+    if cur_min < 13*60:
+        return ("午休窗口(11:30-13:00)", "纯午盘半日数据")
+    if cur_min < 15*60:
+        return ("下午交易中(13:00后)", "⚠已过13:00开盘，数据已混入下午交易，并非纯午盘")
+    return ("已收盘(15:00后)", "⚠此时涨停池/资金流接口只返回全天数据，与收盘复盘相同，无法还原午盘")
+
+if IS_NOON:
+    _win, _win_desc = _noon_window_status(_now_min)
+    SNAPSHOT_TIP = (f"【午盘快照｜实际运行 北京时间{RUN_CLOCK}，处于{_win}】{_win_desc}。"
+                    "涨停/资金为截至运行时刻的累计值，下午仍会变化，仅供盘中参考。")
+    print(f"[午盘时间窗] {_win} —— {_win_desc}")
+else:
+    SNAPSHOT_TIP = ""
+print(f"========== 当前运行模式：{MODE_LABEL} ({RUN_MODE})，北京时间：{NOW_BJ.strftime('%Y-%m-%d %H:%M:%S')} ==========")
 
 today = datetime.now().strftime("%Y%m%d")
 today_str = datetime.now().strftime("%Y-%m-%d")
+
+# ===== 非A股交易日直接退出（节假日不发报告；交易日历拿不到时不阻断、照常运行）=====
+def _is_trade_day(d):
+    try:
+        _cal = ak.tool_trade_date_hist_sina()
+        _days = set(pd.to_datetime(_cal["trade_date"]).dt.strftime("%Y%m%d"))
+        return d in _days
+    except Exception as _e:
+        print(f"交易日历获取失败({_e})，跳过交易日检查，继续执行")
+        return True
+if not _is_trade_day(today):
+    print(f"{today} 非A股交易日，跳过本次复盘")
+    raise SystemExit(0)
 
 # 1. 获取当日涨停池
 try:
@@ -54,7 +103,7 @@ except Exception as e:
 # 4. 获取大盘分时数据
 try:
     df_index = ak.index_zh_a_hist_min_em(symbol="000001", period="1",
-        start_date=f"{today_str} 09:30:00", end_date=f"{today_str} 15:00:00")
+        start_date=f"{today_str} 09:30:00", end_date=f"{today_str} {INDEX_END}")
     index_map = {}
     for _, row in df_index.iterrows():
         t = str(row["时间"])
@@ -65,36 +114,32 @@ except Exception as e:
     print(f"大盘分时失败: {e}")
     index_map = {}
 
-# 5. 获取板块资金流向（使用多源容错模块：同花顺>东财备用节点>CF反代）
+# 5. 获取板块资金流向（同花顺 → 东方财富备用节点 → 可选 CF 兜底）
 sector_fund_map = {}
 fund_source = ""
 
 try:
-    import sector_fund_flow as sff
-    print("正在获取板块资金流向（多源容错版）...")
-    fund_df = sff.get_sector_fund_flow()
-    if fund_df is not None and not fund_df.empty:
-        for _, row in fund_df.iterrows():
-            name = str(row.get("板块名称", "")).strip()
-            if not name:
-                continue
-            sector_fund_map[name] = {
-                "main_inflow": float(row.get("主力净流入(亿)", 0)) * 1e8,  # 亿元转元
-                "main_ratio": float(row.get("主力净占比%", 0)),
-                "super_inflow": 0,
-                "big_inflow": 0,
-                "change_pct": float(row.get("涨跌幅%", 0)),
-                "stock_count": 0
-            }
-        fund_source = str(fund_df["数据来源"].iloc[0]) if "数据来源" in fund_df.columns else "多源容错"
-        print(f"板块资金流向获取成功，共{len(sector_fund_map)}个板块，来源: {fund_source}")
-        top3 = sorted(sector_fund_map.items(), key=lambda x: -x[1]["main_inflow"])[:3]
-        for name, info in top3:
-            print(f"  {name}: 主力净流入{info['main_inflow']/1e8:.2f}亿")
-    else:
-        print("板块资金流向返回空数据")
+    print("正在获取行业板块资金流向...")
+    df_fund = get_sector_fund_flow()
+    if df_fund is None or df_fund.empty:
+        raise RuntimeError("行业资金流向返回为空")
+
+    required_columns = {"板块名称", "主力净流入(亿)", "主力净占比%", "涨跌幅%"}
+    missing = required_columns - set(df_fund.columns)
+    if missing:
+        raise RuntimeError(f"行业资金流向缺少字段: {sorted(missing)}")
+
+    # v2修复：用智能查找器替代手建dict，自动容忍行业名 Ⅱ/Ⅲ后缀、扩展、截断差异
+    sector_fund_map = FundLookup(df_fund)
+
+    fund_source = str(df_fund["数据来源"].iloc[0]) if "数据来源" in df_fund.columns else "行业资金流向模块"
+    print(f"资金流向获取成功，共{len(sector_fund_map)}个板块")
+    print(f"资金流来源：{fund_source}")
+    top3 = sorted(sector_fund_map.items(), key=lambda x: -x[1]["main_inflow"])[:3]
+    for name, info in top3:
+        print(f"  {name}: 主力净流入{info['main_inflow']/1e8:.2f}亿")
 except Exception as e:
-    print(f"板块资金流向获取失败: {e}")
+    print(f"行业板块资金流向获取失败: {e}")
     import traceback
     traceback.print_exc()
 
@@ -255,7 +300,7 @@ if not df_zt.empty:
     df_zt["封板分钟"] = df_zt["首次封板时间"].apply(lambda x: time_to_minutes(parse_hm(x)))
     print("当日涨停分类完成")
 
-# ===== 监管预警（四层逻辑） =====
+# ===== 监管预警（四层逻辑：技术触发→真实名单→交叉验证→预警分级） =====
 monitor_result = None
 if MONITOR_AVAILABLE and not df_zt.empty:
     print("\n===== 监管预警分析 =====")
@@ -274,7 +319,7 @@ if MONITOR_AVAILABLE and not df_zt.empty:
         import traceback
         traceback.print_exc()
 
-# ===== 板块强弱分析（结合涨停股+资金流向） =====
+# ===== 板块强弱分析 =====
 sector_analysis = []
 if not df_zt.empty:
     for ind in df_zt["所属行业"].unique():
@@ -433,7 +478,10 @@ if not df_zt.empty:
 
 # ===== 生成报告 =====
 lines = []
-lines.append(f"===== 每日涨停复盘报告 {today} =====")
+lines.append(f"===== {MODE_LABEL}报告 {today}（生成于北京时间{RUN_CLOCK}）=====")
+if SNAPSHOT_TIP:
+    lines.append(SNAPSHOT_TIP)
+    lines.append("")
 lines.append(f"数据来源: 涨停池(东方财富) + 资金流向({fund_source if fund_source else '未获取到'})")
 lines.append("")
 
@@ -534,7 +582,7 @@ if not red_list and not black_list:
     lines.append("暂无符合条件的个股")
     lines.append("")
 
-lines.append("【六、昨日涨停今日表现】")
+lines.append("【六、昨日涨停今日表现】" + ("（上午盘中，涨跌幅为半日实时）" if IS_NOON else ""))
 if not df_prev.empty:
     valid = df_prev[df_prev["卖出类型"] != "数据缺失"]
     lines.append(f"昨日涨停 {len(df_prev)} 只，有效分析 {len(valid)} 只")
@@ -579,7 +627,7 @@ else:
     lines.append("暂无昨日涨停数据")
 lines.append("")
 
-# 监管预警报告
+# 监管预警报告（四层交叉验证）
 if monitor_result:
     lines.append("【七、监管预警（四层交叉验证）】")
     lines.append("")
@@ -632,7 +680,7 @@ if mail_user and mail_pass:
     msg = MIMEText(report, 'plain', 'utf-8')
     msg['From'] = mail_user
     msg['To'] = mail_user
-    msg['Subject'] = Header(f"每日涨停复盘 {today}", 'utf-8')
+    msg['Subject'] = Header(f"{MODE_LABEL} {today}", 'utf-8')
     try:
         smtp = smtplib.SMTP_SSL("smtp.qq.com", 465)
         smtp.login(mail_user, mail_pass)
