@@ -1,0 +1,42 @@
+# .github/workflows/sector_fund_flow.yml
+# 每个工作日 北京时间 15:35（= UTC 07:35，GitHub cron 以 UTC 为准，通常有数分钟延迟，收盘后任务无影响）
+name: A股行业板块资金流向
+
+on:
+  schedule:
+    - cron: "35 7 * * 1-5"   # 周一到周五 UTC 07:35
+  workflow_dispatch: {}       # 允许手动触发测试
+
+jobs:
+  fetch-fund-flow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 拉取行业板块资金流向（三源自动降级）
+        env:
+          # 可选：部署 cloudflare_worker.js 后，把 Worker 地址填到仓库 Secrets 的 EM_PROXY_URL
+          # 不配也没关系，会优先走 同花顺 → 东财备用节点
+          EM_PROXY_URL: ${{ secrets.EM_PROXY_URL }}
+        run: python sector_fund_flow_github.py
+
+      - name: 上传结果 CSV
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sector-fund-flow
+          path: sector_fund_flow.csv
+          retention-days: 30
