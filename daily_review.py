@@ -65,131 +65,38 @@ except Exception as e:
     print(f"大盘分时失败: {e}")
     index_map = {}
 
-# 5. 获取板块资金流向
+# 5. 获取板块资金流向（使用多源容错模块：同花顺>东财备用节点>CF反代）
 sector_fund_map = {}
 fund_source = ""
 
-# 方案A（优先）：调用腾讯云函数获取资金流向
-cloud_func_url = os.environ.get("CLOUD_FUNC_URL", "")
-if cloud_func_url:
-    try:
-        print("正在调用腾讯云函数获取板块资金流向...")
-        print(f"云函数URL: {cloud_func_url[:80]}...")
-        resp = requests.get(cloud_func_url, timeout=20)
-        print(f"云函数响应状态码: {resp.status_code}")
-        print(f"云函数响应前300字符: {resp.text[:300]}")
-
-        fund_data = resp.json()
-        if fund_data.get("success") and fund_data.get("data"):
-            for item in fund_data["data"]:
-                name = str(item.get("name", "")).strip()
-                if not name:
-                    continue
-                sector_fund_map[name] = {
-                    "main_inflow": float(item.get("main_inflow", 0)),
-                    "main_ratio": float(item.get("main_ratio", 0)),
-                    "super_inflow": float(item.get("super_inflow", 0)),
-                    "big_inflow": float(item.get("big_inflow", 0)),
-                    "change_pct": float(item.get("change_pct", 0)),
-                    "stock_count": 0
-                }
-            fund_source = "腾讯云函数(东方财富)"
-            print(f"腾讯云函数获取成功，共{len(sector_fund_map)}个板块")
-            top3 = sorted(sector_fund_map.items(), key=lambda x: -x[1]["main_inflow"])[:3]
-            for name, info in top3:
-                print(f"  {name}: 主力净流入{info['main_inflow']/1e8:.2f}亿")
-        else:
-            print(f"云函数返回失败: {fund_data.get('error', '未知错误')}")
-    except Exception as e:
-        print(f"腾讯云函数调用失败: {e}")
-        import traceback
-        traceback.print_exc()
-else:
-    print("未配置CLOUD_FUNC_URL，跳过腾讯云函数方案")
-
-# 方案B：新浪财经API（降级）
-if len(sector_fund_map) == 0:
-    try:
-        print("正在获取新浪行业板块资金流向...")
-        url = "http://vip.stock.finance.sina.com.cn/q/api/jsonp.php/var%20_BkzjData/MoneyFlow.ssl_bkzj_bk"
-        params = {"page": 1, "num": 200, "sort": "netamount", "asc": 0, "fenlei": 1}
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Referer": "http://vip.stock.finance.sina.com.cn/"
-        }
-        resp = requests.get(url, params=params, headers=headers, timeout=15)
-        print(f"新浪API响应状态码: {resp.status_code}")
-        print(f"新浪API响应前300字符: {resp.text[:300]}")
-
-        match = re.search(r'\((\[.*\])\)', resp.text, re.DOTALL)
-        if match:
-            fund_data = json.loads(match.group(1))
-            print(f"新浪板块资金流向获取成功，共{len(fund_data)}个板块")
-            for item in fund_data:
-                name = str(item.get("name", "")).strip()
-                if not name:
-                    continue
-                try:
-                    sector_fund_map[name] = {
-                        "main_inflow": float(item.get("netamount", 0)),
-                        "main_ratio": float(item.get("ratioamount", 0)),
-                        "super_inflow": 0,
-                        "big_inflow": 0,
-                        "change_pct": float(item.get("changepercent", 0)),
-                        "stock_count": 0
-                    }
-                except:
-                    pass
-            fund_source = "新浪财经"
-            print(f"新浪板块资金流向解析完成，共{len(sector_fund_map)}个板块")
-    except Exception as e:
-        print(f"新浪板块资金流向获取失败: {e}")
-
-# 方案C：akshare个股资金流向获取涨停股数据，按行业汇总（降级）
-if len(sector_fund_map) == 0 and not df_zt.empty:
-    print("前两个方案都失败，改用akshare个股资金流向获取涨停股数据...")
-    stock_fund_data = []
-    for idx, row in df_zt.iterrows():
-        code = str(row["代码"]).zfill(6)
-        name = row["名称"]
-        industry = row.get("所属行业", "")
-        market = "sh" if code.startswith("6") else "sz"
-        try:
-            df_sf = ak.stock_individual_fund_flow(stock=code, market=market)
-            if df_sf is not None and len(df_sf) > 0:
-                latest = df_sf.iloc[-1]
-                main_inflow = float(latest.get("主力净流入-净额", 0))
-                main_ratio = float(latest.get("主力净流入-净占比", 0))
-                stock_fund_data.append({
-                    "code": code, "name": name, "industry": industry,
-                    "main_inflow": main_inflow, "main_ratio": main_ratio
-                })
-                print(f"  {code} {name}: 主力净流入{main_inflow/1e8:.2f}亿")
-            time.sleep(0.3)
-        except Exception as e:
-            print(f"  {code} {name} 资金流向获取失败: {e}")
-            time.sleep(0.3)
-
-    if stock_fund_data:
-        industry_fund = {}
-        for item in stock_fund_data:
-            ind = item["industry"]
-            if ind not in industry_fund:
-                industry_fund[ind] = {"main_inflow": 0, "count": 0, "ratios": []}
-            industry_fund[ind]["main_inflow"] += item["main_inflow"]
-            industry_fund[ind]["count"] += 1
-            industry_fund[ind]["ratios"].append(item["main_ratio"])
-        for ind, info in industry_fund.items():
-            sector_fund_map[ind] = {
-                "main_inflow": info["main_inflow"],
-                "main_ratio": sum(info["ratios"]) / len(info["ratios"]) if info["ratios"] else 0,
+try:
+    import sector_fund_flow as sff
+    print("正在获取板块资金流向（多源容错版）...")
+    fund_df = sff.get_sector_fund_flow()
+    if fund_df is not None and not fund_df.empty:
+        for _, row in fund_df.iterrows():
+            name = str(row.get("板块名称", "")).strip()
+            if not name:
+                continue
+            sector_fund_map[name] = {
+                "main_inflow": float(row.get("主力净流入(亿)", 0)) * 1e8,  # 亿元转元
+                "main_ratio": float(row.get("主力净占比%", 0)),
                 "super_inflow": 0,
                 "big_inflow": 0,
-                "change_pct": 0,
-                "stock_count": info["count"]
+                "change_pct": float(row.get("涨跌幅%", 0)),
+                "stock_count": 0
             }
-        fund_source = "涨停股汇总"
-        print(f"个股资金流向按行业汇总完成，共{len(sector_fund_map)}个板块")
+        fund_source = str(fund_df["数据来源"].iloc[0]) if "数据来源" in fund_df.columns else "多源容错"
+        print(f"板块资金流向获取成功，共{len(sector_fund_map)}个板块，来源: {fund_source}")
+        top3 = sorted(sector_fund_map.items(), key=lambda x: -x[1]["main_inflow"])[:3]
+        for name, info in top3:
+            print(f"  {name}: 主力净流入{info['main_inflow']/1e8:.2f}亿")
+    else:
+        print("板块资金流向返回空数据")
+except Exception as e:
+    print(f"板块资金流向获取失败: {e}")
+    import traceback
+    traceback.print_exc()
 
 print(f"最终板块资金流向数据: {len(sector_fund_map)}个板块, 来源: {fund_source}")
 
