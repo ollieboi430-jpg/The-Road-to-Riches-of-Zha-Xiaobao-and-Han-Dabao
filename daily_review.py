@@ -54,7 +54,38 @@ except Exception as e:
     print(f"大盘分时失败: {e}")
     index_map = {}
 
-# 5. 获取全市场行情（用新浪财经接口）
+# 5. 获取板块资金流向（全市场所有板块）
+sector_fund_map = {}
+try:
+    print("正在获取板块资金流向...")
+    df_fund = ak.stock_sector_fund_flow_rank(indicator="今日", sector_type="行业资金流")
+    print(f"板块资金流向获取成功，共{len(df_fund)}个板块")
+    print(f"资金流向列名: {list(df_fund.columns)}")
+
+    for _, row in df_fund.iterrows():
+        name = str(row.get("名称", "")).strip()
+        try:
+            main_inflow = float(row.get("今日主力净流入-净额", 0))
+            main_ratio = float(row.get("今日主力净流入-净占比", 0))
+            super_inflow = float(row.get("今日超大单净流入-净额", 0))
+            big_inflow = float(row.get("今日大单净流入-净额", 0))
+            change_pct = float(row.get("今日涨跌幅", 0))
+            sector_fund_map[name] = {
+                "main_inflow": main_inflow,
+                "main_ratio": main_ratio,
+                "super_inflow": super_inflow,
+                "big_inflow": big_inflow,
+                "change_pct": change_pct
+            }
+        except:
+            pass
+    print(f"板块资金流向解析完成，共{len(sector_fund_map)}个板块")
+except Exception as e:
+    print(f"板块资金流向获取失败: {e}")
+    import traceback
+    traceback.print_exc()
+
+# 6. 获取全市场行情（用新浪财经接口）
 spot_map = {}
 
 # 方案A: 新浪全市场行情
@@ -62,7 +93,6 @@ try:
     print("正在获取新浪全市场行情...")
     df_spot = ak.stock_zh_a_spot()
     print(f"新浪全市场行情获取成功，共{len(df_spot)}行")
-    print(f"新浪行情列名: {list(df_spot.columns)}")
 
     for _, row in df_spot.iterrows():
         code_raw = str(row.get("代码", "")).strip()
@@ -136,6 +166,16 @@ def index_drop_rebound(start_hm, end_hm):
         rebound = (seg[-1] - min(seg)) / min(seg) * 100
         return drop, rebound
     except: return 0, 0
+
+def format_amount(val):
+    """格式化资金金额，亿/万"""
+    abs_val = abs(val)
+    if abs_val >= 1e8:
+        return f"{val/1e8:.2f}亿"
+    elif abs_val >= 1e4:
+        return f"{val/1e4:.2f}万"
+    else:
+        return f"{val:.0f}"
 
 # ===== 当日涨停多维度分类 =====
 if not df_zt.empty:
@@ -215,7 +255,7 @@ if not df_zt.empty:
     df_zt["封板分钟"] = df_zt["首次封板时间"].apply(lambda x: time_to_minutes(parse_hm(x)))
     print("当日涨停分类完成")
 
-# ===== 板块强弱分析 =====
+# ===== 板块强弱分析（结合涨停股+资金流向） =====
 sector_analysis = []
 if not df_zt.empty:
     for ind in df_zt["所属行业"].unique():
@@ -230,6 +270,17 @@ if not df_zt.empty:
         lianban_count = (ind_df["连板数"] >= 2).sum()
         late_count = (ind_df["封板时间"] == "尾盘偷袭封板").sum()
 
+        # 结合资金流向
+        fund_info = sector_fund_map.get(ind, None)
+        main_inflow = fund_info["main_inflow"] if fund_info else 0
+        main_ratio = fund_info["main_ratio"] if fund_info else 0
+        fund_status = "无数据"
+        if fund_info:
+            if main_inflow > 0:
+                fund_status = "主力流入"
+            else:
+                fund_status = "主力流出"
+
         score = 0
         score += count * 2
         if count >= 3: score += 3
@@ -239,6 +290,9 @@ if not df_zt.empty:
         if bad_board_rate >= 30: score -= 2
         if lianban_count >= 1: score += 1
         if late_count >= count * 0.5: score -= 2
+        # 资金流向加分
+        if fund_info and main_inflow > 0: score += 2
+        if fund_info and main_inflow < 0: score -= 2
 
         if score >= 8: level = "强势板块"
         elif score >= 3: level = "一般板块"
@@ -251,13 +305,55 @@ if not df_zt.empty:
             "一次封板率": f"{one_board_rate:.0f}%",
             "烂板率": f"{bad_board_rate:.0f}%",
             "连板数": lianban_count,
-            "尾盘数": late_count
+            "尾盘数": late_count,
+            "主力净流入": main_inflow,
+            "主力净占比": main_ratio,
+            "资金状态": fund_status
         })
 
     sector_analysis.sort(key=lambda x: -x["评分"])
     strong_sectors = [s for s in sector_analysis if s["等级"] == "强势板块"]
     weak_sectors = [s for s in sector_analysis if s["等级"] == "弱势板块"]
     print(f"板块分析: 强势{len(strong_sectors)}个, 弱势{len(weak_sectors)}个")
+
+# ===== 全市场板块资金流向排名 =====
+fund_ranking_in = []
+fund_ranking_out = []
+if sector_fund_map:
+    sorted_fund = sorted(sector_fund_map.items(), key=lambda x: -x[1]["main_inflow"])
+    for name, info in sorted_fund[:15]:
+        fund_ranking_in.append({
+            "板块": name,
+            "主力净流入": info["main_inflow"],
+            "主力净占比": info["main_ratio"],
+            "涨跌幅": info["change_pct"],
+            "涨停数": industry_counts.get(name, 0) if not df_zt.empty else 0
+        })
+    for name, info in sorted_fund[-15:]:
+        fund_ranking_out.append({
+            "板块": name,
+            "主力净流入": info["main_inflow"],
+            "主力净占比": info["main_ratio"],
+            "涨跌幅": info["change_pct"],
+            "涨停数": industry_counts.get(name, 0) if not df_zt.empty else 0
+        })
+    fund_ranking_out.reverse()
+
+# ===== 资金流向与涨停股交叉分析 =====
+cross_analysis = {"both": [], "zt_no_fund": [], "fund_no_zt": []}
+if sector_fund_map and not df_zt.empty:
+    for name, info in sector_fund_map.items():
+        zt_count = industry_counts.get(name, 0)
+        if zt_count >= 2 and info["main_inflow"] > 0:
+            cross_analysis["both"].append({"板块": name, "涨停数": zt_count, "主力净流入": info["main_inflow"]})
+        elif zt_count >= 2 and info["main_inflow"] < 0:
+            cross_analysis["zt_no_fund"].append({"板块": name, "涨停数": zt_count, "主力净流入": info["main_inflow"]})
+        elif zt_count == 0 and info["main_inflow"] > 5e7:
+            cross_analysis["fund_no_zt"].append({"板块": name, "涨停数": 0, "主力净流入": info["main_inflow"]})
+
+    cross_analysis["both"].sort(key=lambda x: -x["主力净流入"])
+    cross_analysis["zt_no_fund"].sort(key=lambda x: x["主力净流入"])
+    cross_analysis["fund_no_zt"].sort(key=lambda x: -x["主力净流入"])
 
 # ===== 昨日涨停表现分类 =====
 if not df_prev.empty:
@@ -320,6 +416,11 @@ if not df_zt.empty:
         if row["驱动原因"] == "板块驱动型": score += 1; reasons.append("有板块效应")
         if row["驱动原因"] == "公告驱动型": score += 1; reasons.append("公告利好")
         if row["市值"] == "小盘股(<50亿)": score += 1; reasons.append("小盘股")
+        # 板块资金流向加分
+        ind = row.get("所属行业", "")
+        fund_info = sector_fund_map.get(ind, None)
+        if fund_info and fund_info["main_inflow"] > 0: score += 1; reasons.append("板块资金流入")
+        if fund_info and fund_info["main_inflow"] < 0: score -= 1; reasons.append("板块资金流出")
         if row["封板时间"] == "尾盘偷袭封板": score -= 2; reasons.append("尾盘偷袭")
         if row["封板结构"] == "烂板型": score -= 2; reasons.append("烂板")
         if row["板块地位"] == "板块补涨后排": score -= 1; reasons.append("后排跟风")
@@ -348,7 +449,7 @@ else:
     lines.append("当日暂无涨停数据")
 lines.append("")
 
-lines.append("【二、板块强弱分析】")
+lines.append("【二、板块强弱分析（结合涨停股+资金流向）】")
 lines.append("")
 if sector_analysis:
     lines.append(f"共涉及 {len(sector_analysis)} 个行业板块")
@@ -359,6 +460,7 @@ if sector_analysis:
             lines.append(f"  [{s['行业']}] 评分:{s['评分']} 涨停{s['涨停数']}只")
             lines.append(f"    领涨龙头: {s['领涨龙头']}")
             lines.append(f"    平均封板:{s['平均封板']} 一次封板率:{s['一次封板率']} 连板:{s['连板数']}只")
+            lines.append(f"    主力净流入: {format_amount(s['主力净流入'])} ({s['资金状态']})")
         lines.append("")
     if weak_sectors:
         lines.append("■ 弱势板块（谨慎参与）")
@@ -366,16 +468,51 @@ if sector_analysis:
             lines.append(f"  [{s['行业']}] 评分:{s['评分']} 涨停{s['涨停数']}只")
             lines.append(f"    领涨龙头: {s['领涨龙头']}")
             lines.append(f"    平均封板:{s['平均封板']} 烂板率:{s['烂板率']} 尾盘封板:{s['尾盘数']}只")
+            lines.append(f"    主力净流入: {format_amount(s['主力净流入'])} ({s['资金状态']})")
         lines.append("")
     lines.append("■ 板块强弱总览（按评分排序）")
     for s in sector_analysis:
         mark = "★" if s["等级"] == "强势板块" else ("☆" if s["等级"] == "弱势板块" else "○")
-        lines.append(f"  {mark} {s['行业']}: {s['涨停数']}只涨停, 评分{s['评分']} ({s['等级']})")
+        fund_mark = "↑" if s["主力净流入"] > 0 else ("↓" if s["主力净流入"] < 0 else "-")
+        lines.append(f"  {mark} {s['行业']}: {s['涨停数']}只涨停, 评分{s['评分']}, 主力{fund_mark}{format_amount(abs(s['主力净流入']))} ({s['等级']})")
 else:
     lines.append("暂无板块数据")
 lines.append("")
 
-lines.append("【三、打板红黑榜】")
+lines.append("【三、全市场板块资金流向排名】")
+lines.append("")
+if fund_ranking_in:
+    lines.append("■ 主力净流入TOP15（资金抢筹）")
+    for i, s in enumerate(fund_ranking_in[:15], 1):
+        zt_mark = f" 涨停{s['涨停数']}只" if s['涨停数'] > 0 else ""
+        lines.append(f"  {i:2d}. {s['板块']}: 主力净流入{format_amount(s['主力净流入'])}, 占比{s['主力净占比']:.2f}%, 涨跌{s['涨跌幅']:.2f}%{zt_mark}")
+    lines.append("")
+if fund_ranking_out:
+    lines.append("■ 主力净流出TOP15（资金出逃）")
+    for i, s in enumerate(fund_ranking_out[:15], 1):
+        zt_mark = f" 涨停{s['涨停数']}只" if s['涨停数'] > 0 else ""
+        lines.append(f"  {i:2d}. {s['板块']}: 主力净流出{format_amount(abs(s['主力净流入']))}, 占比{s['主力净占比']:.2f}%, 涨跌{s['涨跌幅']:.2f}%{zt_mark}")
+    lines.append("")
+
+lines.append("【四、资金流向与涨停股交叉分析】")
+lines.append("")
+if cross_analysis["both"]:
+    lines.append("■ 涨停+资金双驱动（最优质，持续性强）")
+    for s in cross_analysis["both"][:10]:
+        lines.append(f"  {s['板块']}: {s['涨停数']}只涨停, 主力净流入{format_amount(s['主力净流入'])}")
+    lines.append("")
+if cross_analysis["zt_no_fund"]:
+    lines.append("■ 有涨停但资金流出（警惕诱多，次日难接力）")
+    for s in cross_analysis["zt_no_fund"][:10]:
+        lines.append(f"  {s['板块']}: {s['涨停数']}只涨停, 主力净流出{format_amount(abs(s['主力净流入']))}")
+    lines.append("")
+if cross_analysis["fund_no_zt"]:
+    lines.append("■ 资金流入但无涨停（潜在机会，可提前布局）")
+    for s in cross_analysis["fund_no_zt"][:10]:
+        lines.append(f"  {s['板块']}: 主力净流入{format_amount(s['主力净流入'])}, 暂无涨停")
+    lines.append("")
+
+lines.append("【五、打板红黑榜】")
 lines.append("")
 if red_list:
     lines.append("■ 红榜（优选打板池）")
@@ -391,7 +528,7 @@ if not red_list and not black_list:
     lines.append("暂无符合条件的个股")
     lines.append("")
 
-lines.append("【四、昨日涨停今日表现】")
+lines.append("【六、昨日涨停今日表现】")
 if not df_prev.empty:
     valid = df_prev[df_prev["卖出类型"] != "数据缺失"]
     lines.append(f"昨日涨停 {len(df_prev)} 只，有效分析 {len(valid)} 只")
@@ -436,7 +573,7 @@ else:
     lines.append("暂无昨日涨停数据")
 lines.append("")
 
-lines.append("【五、打板策略总结与避坑指南】")
+lines.append("【七、打板策略总结与避坑指南】")
 lines.append("")
 lines.append("■ 优选打板特征（好卖概率高）")
 lines.append("  1.早盘10点前封板，封板结构扎实（一次封板或大盘回封型）")
@@ -445,6 +582,7 @@ lines.append("  3.有明确利好驱动（公告利好或板块政策利好）")
 lines.append("  4.连板股或近期活跃股，股性好")
 lines.append("  5.小盘股（<50亿），资金容易拉升")
 lines.append("  6.优先选择强势板块内的个股，避开弱势板块")
+lines.append("  7.所属板块主力资金净流入，有资金支撑")
 lines.append("")
 lines.append("■ 坚决规避特征（坑人概率高）")
 lines.append("  1.尾盘偷袭封板（14:45后），非实力资金所为")
@@ -453,6 +591,7 @@ lines.append("  3.板块补涨后排，跟风属性强，龙头一倒就崩")
 lines.append("  4.无板块支撑的个股独立涨停，缺乏持续性")
 lines.append("  5.大盘股（>200亿），需要大量资金才能拉升")
 lines.append("  6.弱势板块内的个股，板块整体缺乏持续性")
+lines.append("  7.所属板块主力资金净流出，涨停可能是诱多")
 lines.append("")
 lines.append("■ 好卖涨停的两个核心特征")
 lines.append("  1.直接高开：次日高开>=3%，且开盘后继续冲高，全天均价在红盘上方")
