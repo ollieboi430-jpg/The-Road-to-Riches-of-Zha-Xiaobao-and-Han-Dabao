@@ -8,10 +8,16 @@ import re
 import json
 from email.mime.text import MIMEText
 from email.header import Header
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from sector_fund_flow_github import get_sector_fund_flow, FundLookup
+from monitor_alert import build_monitor_alert
 # ===== 双复盘模式：--mode noon=午盘半日复盘(11:35) / close=全天收盘复盘(15:35，默认) =====
 import argparse
+# 统一用北京时间判断运行窗口（GitHub Actions 服务器默认是 UTC，不能直接用 datetime.now()）
+_BJ = timezone(timedelta(hours=8))
+NOW_BJ = datetime.now(_BJ)
+RUN_CLOCK = NOW_BJ.strftime("%H:%M")          # 实际运行的北京时间 HH:MM
+_now_min = NOW_BJ.hour * 60 + NOW_BJ.minute
 _parser = argparse.ArgumentParser(description="A股涨停复盘：noon午盘 / close收盘")
 _parser.add_argument("--mode", default="close", choices=["noon", "close"],
                      help="noon=午盘半日复盘，close=全天收盘复盘(默认)")
@@ -20,9 +26,26 @@ RUN_MODE = _args.mode
 IS_NOON = RUN_MODE == "noon"
 MODE_LABEL = "午盘半日复盘" if IS_NOON else "全天收盘复盘"
 INDEX_END = "11:30:00" if IS_NOON else "15:00:00"   # 午盘大盘分时只取到上午收盘
-SNAPSHOT_TIP = ("【午盘快照】数据截至11:30上午收盘，为半日累计；"
-                "下午仍可能炸板/回封、资金继续变化，仅供盘中参考。") if IS_NOON else ""
-print(f"========== 当前运行模式：{MODE_LABEL} ({RUN_MODE}) ==========")
+
+# ===== 午盘数据时间窗守卫：涨停池/资金流是“截至调用时刻的累计快照”，无法事后回放 =====
+# 纯午盘数据只能在 11:30~13:00（午休）窗口内实时拉取；收盘后补跑拿到的是全天数据
+def _noon_window_status(cur_min):
+    if cur_min < 11*60+30:
+        return ("上午尚未收盘(11:30前)", "当前为盘中实时数据，非完整半日快照")
+    if cur_min < 13*60:
+        return ("午休窗口(11:30-13:00)", "纯午盘半日数据")
+    if cur_min < 15*60:
+        return ("下午交易中(13:00后)", "⚠已过13:00开盘，数据已混入下午交易，并非纯午盘")
+    return ("已收盘(15:00后)", "⚠此时涨停池/资金流接口只返回全天数据，与收盘复盘相同，无法还原午盘")
+
+if IS_NOON:
+    _win, _win_desc = _noon_window_status(_now_min)
+    SNAPSHOT_TIP = (f"【午盘快照｜实际运行 北京时间{RUN_CLOCK}，处于{_win}】{_win_desc}。"
+                    "涨停/资金为截至运行时刻的累计值，下午仍会变化，仅供盘中参考。")
+    print(f"[午盘时间窗] {_win} —— {_win_desc}")
+else:
+    SNAPSHOT_TIP = ""
+print(f"========== 当前运行模式：{MODE_LABEL} ({RUN_MODE})，北京时间：{NOW_BJ.strftime('%Y-%m-%d %H:%M:%S')} ==========")
 
 today = datetime.now().strftime("%Y%m%d")
 today_str = datetime.now().strftime("%Y-%m-%d")
@@ -427,9 +450,21 @@ if not df_zt.empty:
         elif score <= -2: black_list.append((row["名称"], row["代码"], row["所属行业"], score, "、".join(reasons)))
     red_list.sort(key=lambda x: -x[3]); black_list.sort(key=lambda x: x[3])
 
+# ===== 监管提醒：严重异常波动 进/出预判（仅收盘模式；午盘当日未收盘，日K无意义）=====
+monitor_result = {"new_hits": [], "near": [], "watching": [], "monitoring": [], "exited": []}
+if not IS_NOON:
+    try:
+        print("正在计算监管偏离值（个股+基准指数近60日K线）...")
+        monitor_result = build_monitor_alert(df_zt, today, state_path="monitor_state.json")
+    except Exception as e:
+        print(f"监管提醒计算失败: {e}")
+        import traceback; traceback.print_exc()
+else:
+    print("午盘模式跳过监管提醒（监管偏离以日K收盘价计算，收盘后运行）")
+
 # ===== 生成报告 =====
 lines = []
-lines.append(f"===== {MODE_LABEL}报告 {today} =====")
+lines.append(f"===== {MODE_LABEL}报告 {today}（生成于北京时间{RUN_CLOCK}）=====")
 if SNAPSHOT_TIP:
     lines.append(SNAPSHOT_TIP)
     lines.append("")
@@ -606,6 +641,48 @@ lines.append("■ 坑人涨停的典型走势")
 lines.append("  1.高开下杀：高开>=2%，10分钟内快速翻绿，全天无有效红盘卖点")
 lines.append("  2.水下闷杀：低开后直接下行，全天趴在水面之下，最高都翻不了红")
 lines.append("  3.冲高闷杀：短暂冲高>=2%后快速回落，收盘跌>=1%，卖点窗口极短")
+
+# ===== 【八、监管提醒】 =====
+lines.append("")
+lines.append("【八、监管提醒 · 严重异常波动进/出预判】")
+lines.append("规则：相对所属基准指数(沪→上证/深主板→深成指/创业板→创业板指/科创→科创50)，"
+             "3日累计偏离±20%、10日+100%、30日+200%为红线；进度=偏离/红线。")
+lines.append("")
+if IS_NOON:
+    lines.append("（午盘模式不计算监管偏离，以收盘后报告为准）")
+elif monitor_result["new_hits"]:
+    lines.append("■ 🔴 今日触及红线（次日起大概率被列入严重异常波动/重点监控）")
+    for x in monitor_result["new_hits"]:
+        lines.append(f"  {x['name']}({x['code']}) 基准:{x['index_name']}")
+        lines.append(f"    {x['detail']}")
+    lines.append("")
+else:
+    lines.append("■ 🔴 今日新触线：无")
+    lines.append("")
+if not IS_NOON and monitor_result["near"]:
+    lines.append("■ 🟠 高度临近红线（进度≥80%，重点盯防）")
+    for x in monitor_result["near"][:10]:
+        lines.append(f"  {x['name']}({x['code']}) 最高进度{x['max_ratio']*100:.0f}%｜{x['detail']}")
+    lines.append("")
+if not IS_NOON and monitor_result["watching"]:
+    lines.append("■ 🟡 监控中（进度50%-80%）")
+    lines.append("  " + "、".join(f"{x['name']}({x['max_ratio']*100:.0f}%)" for x in monitor_result["watching"][:15]))
+    lines.append("")
+if not IS_NOON and monitor_result["monitoring"]:
+    lines.append("■ 🔵 已在重点监控 · 出监管倒计时（每个交易日递减，归零退出）")
+    for x in monitor_result["monitoring"]:
+        tag = "🟢即将退出" if x["leaving"] else "🟡监控中"
+        lines.append(f"  {x['name']}({x['code']}) 自{x['enter_date']}起监控，剩余{x['left_days']}个交易日 {tag}，"
+                     f"最近{x['last_win']}日偏离{x['last_dev']:+.2f}%")
+    lines.append("")
+if not IS_NOON and monitor_result["exited"]:
+    lines.append("■ 🟢 今日退出重点监控：" + "、".join(f"{x['name']}({x['code']})" for x in monitor_result["exited"]))
+    lines.append("")
+if not IS_NOON:
+    lines.append("提示：重点监控期间股票正常买卖不受限，受限的是异常交易行为（频繁挂撤单、"
+                 "3分钟集中扫货超300万、涨停挂超大封单等），且监控期触发阈值下调约50%；"
+                 "百万以内小资金正常交易基本无影响，中大额需拆单、拉长时间。")
+    lines.append("")
 
 report = "\n".join(lines)
 print(f"报告生成完成，共{len(report)}字符")
