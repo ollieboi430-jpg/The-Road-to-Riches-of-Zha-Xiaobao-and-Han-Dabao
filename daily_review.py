@@ -3,8 +3,6 @@ import pandas as pd
 import os
 import smtplib
 import time
-import requests
-import json
 from email.mime.text import MIMEText
 from email.header import Header
 from datetime import datetime
@@ -56,69 +54,52 @@ except Exception as e:
     print(f"大盘分时失败: {e}")
     index_map = {}
 
-# 5. 获取板块资金流向（直接调用东方财富原始API）
+# 5. 获取板块资金流向（个股资金流向按行业汇总）
 sector_fund_map = {}
 try:
-    print("正在获取板块资金流向（东方财富原始API）...")
-    url = "http://push2.eastmoney.com/api/qt/clist/get"
-    params = {
-        "pn": 1,
-        "pz": 100,
-        "po": 1,
-        "np": 1,
-        "fltt": 2,
-        "invt": 2,
-        "fid": "f62",
-        "fs": "m:90+t:2",
-        "fields": "f12,f14,f2,f3,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87"
-    }
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": "http://data.eastmoney.com/"
-    }
-    resp = requests.get(url, params=params, headers=headers, timeout=15)
-    print(f"API响应状态码: {resp.status_code}")
-    print(f"API响应前200字符: {resp.text[:200]}")
+    print("正在获取个股资金流向排名...")
+    df_fund = ak.stock_individual_fund_flow_rank(indicator="今日")
+    print(f"个股资金流向获取成功，共{len(df_fund)}只")
+    print(f"资金流向列名: {list(df_fund.columns)}")
 
-    data = resp.json()
-    if data.get("data") and data["data"].get("diff"):
-        fund_list = data["data"]["diff"]
-        print(f"板块资金流向获取成功，共{len(fund_list)}个板块")
+    if "所属行业" in df_fund.columns and "今日主力净流入-净额" in df_fund.columns:
+        df_fund["今日主力净流入-净额"] = pd.to_numeric(df_fund["今日主力净流入-净额"], errors="coerce")
+        df_fund["今日主力净流入-净占比"] = pd.to_numeric(df_fund["今日主力净流入-净占比"], errors="coerce")
+        df_fund["今日涨跌幅"] = pd.to_numeric(df_fund["今日涨跌幅"], errors="coerce")
 
-        for item in fund_list:
-            name = str(item.get("f14", "")).strip()
-            try:
-                main_inflow = float(item.get("f62", 0))
-                main_ratio = float(item.get("f184", 0))
-                super_inflow = float(item.get("f66", 0))
-                big_inflow = float(item.get("f72", 0))
-                change_pct = float(item.get("f3", 0))
-                sector_fund_map[name] = {
-                    "main_inflow": main_inflow,
-                    "main_ratio": main_ratio,
-                    "super_inflow": super_inflow,
-                    "big_inflow": big_inflow,
-                    "change_pct": change_pct
-                }
-            except:
-                pass
-        print(f"板块资金流向解析完成，共{len(sector_fund_map)}个板块")
-        print(f"前5个板块: {list(sector_fund_map.keys())[:5]}")
+        for industry, group in df_fund.groupby("所属行业"):
+            name = str(industry).strip()
+            if not name or name == "nan":
+                continue
+            main_inflow = group["今日主力净流入-净额"].sum()
+            main_ratio = group["今日主力净流入-净占比"].mean()
+            change_pct = group["今日涨跌幅"].mean()
+            stock_count = len(group)
+            sector_fund_map[name] = {
+                "main_inflow": float(main_inflow),
+                "main_ratio": float(main_ratio) if pd.notna(main_ratio) else 0,
+                "super_inflow": 0,
+                "big_inflow": 0,
+                "change_pct": float(change_pct) if pd.notna(change_pct) else 0,
+                "stock_count": stock_count
+            }
+        print(f"按行业汇总完成，共{len(sector_fund_map)}个板块")
+        top3 = sorted(sector_fund_map.items(), key=lambda x: -x[1]["main_inflow"])[:3]
+        for name, info in top3:
+            print(f"  {name}: 主力净流入{info['main_inflow']/1e8:.2f}亿, 个股数{info['stock_count']}")
     else:
-        print(f"API返回数据为空: {data}")
+        print(f"列名不匹配，实际列名: {list(df_fund.columns)}")
 except Exception as e:
-    print(f"板块资金流向获取失败: {e}")
+    print(f"个股资金流向获取失败: {e}")
     import traceback
     traceback.print_exc()
 
-# 6. 获取全市场行情（用新浪财经接口）
+# 6. 获取全市场行情（新浪财经接口）
 spot_map = {}
-
 try:
     print("正在获取新浪全市场行情...")
     df_spot = ak.stock_zh_a_spot()
     print(f"新浪全市场行情获取成功，共{len(df_spot)}行")
-
     for _, row in df_spot.iterrows():
         code_raw = str(row.get("代码", "")).strip()
         code = code_raw[-6:] if len(code_raw) >= 6 else code_raw.zfill(6)
@@ -142,19 +123,12 @@ if len(spot_map) == 0 and not df_prev.empty:
         code = str(row["代码"]).zfill(6)
         if code.startswith(("8", "9", "4")):
             continue
-        if code.startswith("6"):
-            sina_code = f"sh{code}"
-        else:
-            sina_code = f"sz{code}"
+        sina_code = f"sh{code}" if code.startswith("6") else f"sz{code}"
         try:
             df_daily = ak.stock_zh_a_daily(symbol=sina_code, start_date=today, end_date=today, adjust="")
             if df_daily is not None and len(df_daily) > 0:
                 latest = df_daily.iloc[-1]
-                spot_map[code] = {
-                    "open": float(latest["open"]),
-                    "high": float(latest["high"]),
-                    "low": float(latest["low"])
-                }
+                spot_map[code] = {"open": float(latest["open"]), "high": float(latest["high"]), "low": float(latest["low"])}
                 print(f"  {code} {row['名称']} 日K线获取成功")
             time.sleep(0.3)
         except Exception as e:
@@ -193,12 +167,9 @@ def index_drop_rebound(start_hm, end_hm):
 
 def format_amount(val):
     abs_val = abs(val)
-    if abs_val >= 1e8:
-        return f"{val/1e8:.2f}亿"
-    elif abs_val >= 1e4:
-        return f"{val/1e4:.2f}万"
-    else:
-        return f"{val:.0f}"
+    if abs_val >= 1e8: return f"{val/1e8:.2f}亿"
+    elif abs_val >= 1e4: return f"{val/1e4:.2f}万"
+    else: return f"{val:.0f}"
 
 # ===== 当日涨停多维度分类 =====
 if not df_zt.empty:
@@ -320,8 +291,7 @@ if not df_zt.empty:
             "行业": ind, "涨停数": count, "评分": score, "等级": level,
             "领涨龙头": f"{leader_name}({leader_time})",
             "平均封板": f"{int(avg_time//60)}:{int(avg_time%60):02d}",
-            "一次封板率": f"{one_board_rate:.0f}%",
-            "烂板率": f"{bad_board_rate:.0f}%",
+            "一次封板率": f"{one_board_rate:.0f}%", "烂板率": f"{bad_board_rate:.0f}%",
             "连板数": lianban_count, "尾盘数": late_count,
             "主力净流入": main_inflow, "主力净占比": main_ratio, "资金状态": fund_status
         })
@@ -340,13 +310,15 @@ if sector_fund_map:
         fund_ranking_in.append({
             "板块": name, "主力净流入": info["main_inflow"],
             "主力净占比": info["main_ratio"], "涨跌幅": info["change_pct"],
-            "涨停数": industry_counts.get(name, 0) if not df_zt.empty else 0
+            "涨停数": industry_counts.get(name, 0) if not df_zt.empty else 0,
+            "个股数": info.get("stock_count", 0)
         })
     for name, info in sorted_fund[-15:]:
         fund_ranking_out.append({
             "板块": name, "主力净流入": info["main_inflow"],
             "主力净占比": info["main_ratio"], "涨跌幅": info["change_pct"],
-            "涨停数": industry_counts.get(name, 0) if not df_zt.empty else 0
+            "涨停数": industry_counts.get(name, 0) if not df_zt.empty else 0,
+            "个股数": info.get("stock_count", 0)
         })
     fund_ranking_out.reverse()
 
