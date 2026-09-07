@@ -153,17 +153,19 @@ def price_map(codes):
 
 # ------------------------------------------- A股代码识别 + 对最终报告一键全局标价格
 # 只认真实 A 股号段，避免把日期(20260907)、金额、时间(153000)误判成股票代码；
-# 同时兼容 603330 / 603330.SH 两种写法（可选吃掉 .SH/.SZ/.BJ 后缀）。
+# 兼容多种写法：603330 / 603330.SH / 百大集团(603330) / （603330）全角半角括号。
+# sfx=可选交易所后缀，rp=代码后紧邻的一个右括号（价格要插到括号外，不能把括号吃掉）。
 _A_SHA_RE = re.compile(
     r"(?<![0-9A-Za-z])"
     r"(60[0135]\d{3}|68[89]\d{3}|00[0-3]\d{3}|30[01]\d{3}"
     r"|920\d{3}|43\d{4}|83\d{4}|87\d{4})"
-    r"(?:\.(?:SH|SZ|BJ|sh|sz|bj))?"
+    r"(?P<sfx>\.(?:SH|SZ|BJ|sh|sz|bj))?"
+    r"(?P<rp>[)）])?"
 )
 
 
 def extract_stock_codes(text):
-    """从任意复盘文本里按出现顺序提取、去重 A 股 6 位代码。"""
+    """从任意复盘文本里按出现顺序提取、去重 A 股 6 位代码（兼容括号/后缀写法）。"""
     seen = []
     for m in _A_SHA_RE.finditer(str(text)):
         c = m.group(1)
@@ -172,15 +174,27 @@ def extract_stock_codes(text):
     return seen
 
 
-def enrich_report_text(report, inline="first", with_extra=True, append_summary=True,
+def market_suffix(code):
+    """6位代码 -> 交易所后缀：60/68/9/5 开头 .SH，920/43/83/87 .BJ，其余 .SZ。"""
+    d = to_digits(code)
+    if d.startswith(("920", "43", "83", "87", "4", "8")):
+        return ".BJ"
+    if d.startswith(("5", "6", "9")):
+        return ".SH"
+    return ".SZ"
+
+
+def enrich_report_text(report, inline="first", with_extra=False, append_summary=True,
                        title="【本报告出现个股 · 实时价格一览】"):
     """
-    对"已经生成好的整段复盘文本"一键标注价格——不用管股票散落在哪个榜单，全部自动标出。
+    对"已经生成好的整段复盘文本"一键标注价格——【规则：只要出现股票代码就标，不挑榜单】。
+    兼容 "百大集团(600865)" 这种括号写法：价格补在右括号外，且不重复前面已有的中文名，
+    例如  百大集团(600865) 一般零售…  →  百大集团(600865) 现价8.50元 +1.20% 一般零售…
     report:        原始报告字符串。
-    inline:        'first'=每只仅在首次出现处内联补价格(默认，不啰嗦)；
-                   'all'=每一处代码都补；'none'=不改动正文。
-    with_extra:    内联/汇总是否附带 量比、换手率。
-    append_summary:末尾追加一张"全部出现个股价格汇总"，保证一只不漏。
+    inline:        'first'=每只仅在首次出现处内联补价格(默认，不刷屏)；
+                   'all'=每一处代码都补；'none'=不改正文只出末尾汇总。
+    with_extra:    是否额外带 量比、换手率（默认关，报告更清爽）。
+    append_summary:末尾追加一张"全部出现个股价格汇总（含全称）"，保证一只不漏。
     返回标注后的新字符串；取不到行情的代码标 [无行情]，绝不因个别失败而丢内容。
     """
     text = str(report)
@@ -189,11 +203,24 @@ def enrich_report_text(report, inline="first", with_extra=True, append_summary=T
         return text
     q = tencent_quotes(codes)
 
-    def brief(code):
+    def inline_tag(code):
+        """正文内联：只补价格不重复名称（名称通常就在代码前面）。"""
         d = q.get(code)
         if not d:
-            return f"{code}[无行情]"
-        s = f'{code}{d["name"]} {d["price"]:.2f}元 {d["change_pct"]:+.2f}%'
+            return "[无行情]"
+        s = f'现价{d["price"]:.2f}元 {d["change_pct"]:+.2f}%'
+        if with_extra:
+            s += f' 量比{d["vol_ratio"]:.2f} 换手{d["turnover_pct"]:.2f}%'
+        if d.get("is_stale"):
+            s += " [停牌/无量]"
+        return s
+
+    def summary_line(code):
+        """末尾汇总：带全称。"""
+        d = q.get(code)
+        if not d:
+            return f"{code} [无行情]"
+        s = f'{code} {d["name"]} {d["price"]:.2f}元 {d["change_pct"]:+.2f}%'
         if with_extra:
             s += f' 量比{d["vol_ratio"]:.2f} 换手{d["turnover_pct"]:.2f}%'
         if d.get("is_stale"):
@@ -204,18 +231,18 @@ def enrich_report_text(report, inline="first", with_extra=True, append_summary=T
         done = set()
 
         def _sub(m):
-            c = m.group(1)
+            c, sfx, rp = m.group(1), m.group("sfx") or "", m.group("rp") or ""
             if inline == "first":
                 if c in done:
-                    return c
+                    return m.group(0)          # 重复出现：原样返回（保留后缀/括号，不能吃掉）
                 done.add(c)
-            return brief(c)
+            return f"{c}{sfx}{rp} {inline_tag(c)}".rstrip()
 
         text = _A_SHA_RE.sub(_sub, text)
 
     if append_summary:
         block = ["", title, f"共出现 {len(codes)} 只（按首次出现顺序，价格为抓取时点）："]
-        block += ["  " + brief(c) for c in codes]
+        block += ["  " + summary_line(c) for c in codes]
         text = text.rstrip() + "\n" + "\n".join(block)
     return text
 
@@ -349,6 +376,88 @@ def rename_section_titles(report, extra=None, only_title_line=True, title_re=Non
             ln = pat.sub(lambda m: mapping[m.group(0)], ln)
         out.append(ln)
     return "\n".join(out)
+
+
+# ------------------------------------------- 优选股票：只提取纯代码清单
+# "判断为优"的区块标题关键词（标题命中即认为整段是优选）；可被入参覆盖。刻意用较精确的词，
+# 不用"强势/多头/龙头"这种宽词，避免把"多空风向标(含走弱)""板块龙头(正文标签)"误判进来。
+DEFAULT_PICK_KEYS = ["优选", "打板", "强势聚焦", "红榜", "好卖型", "形态优选", "上攻形态",
+                     "主攻", "入选", "精选", "金股", "晋级"]
+_SCORE_RE = re.compile(r"评分[:：]\s*(\d+(?:\.\d+)?)")
+
+
+def _split_sections(text, title_re=None):
+    """按标题行把文本切成 [(标题, [正文行...]), ...]，供"只处理指定区块"复用。"""
+    tre = title_re or _SECTION_TITLE_RE
+    secs, title, body = [], "", []
+    for ln in str(text).split("\n"):
+        if tre.match(ln):
+            secs.append((title, body))
+            title, body = ln, []
+        else:
+            body.append(ln)
+    secs.append((title, body))
+    if secs and secs[0][0] == "" and not secs[0][1]:
+        secs = secs[1:]
+    return secs
+
+
+def extract_picked_codes(report, section_keys=None, min_score=None, suffix=False):
+    """
+    从复盘报告里挑出"判断为优"的股票，【只返回股票代码】（去重、按首次出现保序）。
+    两条判定取并集：
+      1) 区块标题命中 section_keys（默认 优选/打板/强势聚焦/红榜/好卖型…）→ 区块内代码全收；
+      2) 给定 min_score 时，任何一行写着"评分:N"且 N≥min_score → 该行代码收（跨区块兜底）。
+    suffix=True 返回带交易所后缀（600865.SH / 002564.SZ），默认返回纯6位代码。
+    """
+    keys = DEFAULT_PICK_KEYS if section_keys is None else list(section_keys)
+    picked, order = set(), []
+
+    def add(c):
+        if c not in picked:
+            picked.add(c)
+            order.append(c)
+
+    for title, body in _split_sections(report):
+        if any(k in title for k in keys):
+            for c in extract_stock_codes("\n".join(body)):
+                add(c)
+    if min_score is not None:
+        for ln in str(report).split("\n"):
+            ms = _SCORE_RE.search(ln)
+            if ms and float(ms.group(1)) >= float(min_score):
+                for c in extract_stock_codes(ln):
+                    add(c)
+    return [c + market_suffix(c) if suffix else c for c in order]
+
+
+def picked_codes_block(report, section_keys=None, min_score=None, suffix=False,
+                       title="【优选股票代码清单·可直接复制】"):
+    """生成可贴到报告末尾的"纯代码清单"文本块（每行一个，方便批量导入软件）。"""
+    codes = extract_picked_codes(report, section_keys, min_score, suffix)
+    if not codes:
+        return ""
+    return "\n".join(["", title, f"共 {len(codes)} 只，每行一个：", *codes])
+
+
+def finalize_report(report, pick_keys=None, min_score=None, with_extra=False,
+                    picked_suffix=False, rename=False):
+    """
+    一键收尾，一次做完三件事（对应固定运行规则）：
+      ① 全文只要出现股票代码就标现价/涨跌幅（不挑榜单、兼容"名称(代码)"括号写法）+末尾价格汇总；
+      ② 把"判断为优"的股票单独整理成【纯代码清单】（默认纯6位；picked_suffix=True 带 .SH/.SZ）；
+      ③ rename=True 时顺带把栏目名改成同花顺风格。
+    返回最终可直接保存/推送的报告文本；任何行情取不到都只标[无行情]，不丢内容。
+    """
+    original = str(report)
+    text = enrich_report_text(original, with_extra=with_extra)
+    if rename:
+        text = rename_section_titles(text)
+    picked = extract_picked_codes(original, pick_keys, min_score, picked_suffix)
+    if picked:
+        text = text.rstrip() + "\n" + "\n".join(
+            ["", "【优选股票代码清单·可直接复制】", f"共 {len(picked)} 只，每行一个：", *picked])
+    return text
 
 
 # ---------------------------------------------------------------- 3) 重点监控真实名单
@@ -498,24 +607,138 @@ def _is_style_concept(name: str) -> bool:
     return n in CONCEPT_STYLE_TAGS or bool(_CONCEPT_STYLE_RE.search(n))
 
 
-# 东财概念名 -> 同花顺App搜索框能直接搜到的名字。绝大多数中文概念两边同名（华为概念、
-# 机器人概念、英伟达概念、液冷服务器、存储芯片…）原样保留即可；这里只列"确实有差异"的。
+# ====== 题材名对齐同花顺（2026-09 快照：用 akshare.stock_board_concept_name_ths 取到的
+# 同花顺官方 375 个概念板块名固化于此，离线校验、运行时不再访问同花顺，海外 Actions 无依赖。
+# 同花顺概念会随时间增减，需更新时本地跑一次该 akshare 接口替换本集合即可）======
+THS_CONCEPT_NAMES = frozenset( {
+    '2026一季报预增', '2026中报预增', '3D打印', '5G', '6G概念', 'AI PC',
+    'AI应用', 'AI手机', 'AI智能体', 'AI眼镜', 'AI视频', 'AI语料',
+    'BC电池', 'DeepSeek概念', 'EDR概念', 'ERP概念', 'ETC', 'F5G概念',
+    'IP经济(谷子经济)', 'MCU芯片', 'MLCC概念', 'MiniLED', 'NFT概念', 'OLED',
+    'PCB概念', 'PEEK材料', 'PET铜箔', 'PM2.5', 'POE胶膜', 'PPP概念',
+    'ST板块', 'TOPCON电池', 'WiFi 6', '一体化压铸', '一带一路', '三胎概念',
+    '上海国企改革', '上海自贸区', '专精特新', '丙烯酸', '东数西算(算力)', '两轮车',
+    '中俄贸易概念', '中国AI 50', '中字头股票', '中船系', '中芯国际概念', '中韩自贸区',
+    '举牌', '乡村振兴', '乳业', '云办公', '云游戏', '云计算',
+    '互联网保险', '互联网金融', '京津冀一体化', '人工智能', '人形机器人', '人脸识别',
+    '人造肉', '代糖概念', '仿制药一致性评价', '传感器', '低空经济', '体育产业',
+    '供销社', '俄乌冲突概念', '信创', '信托概念', '储能', '元宇宙',
+    '充电桩', '先进封装', '光伏概念', '光刻机', '光刻胶', '光热发电',
+    '光纤概念', '免税店', '共享单车', '共同富裕示范区', '共封装光学(CPO)', '兵装重组概念',
+    '养老概念', '养鸡', '军工', '军工信息化', '军民融合', '农业种植',
+    '农机', '农村电商', '冰雪产业', '冷链物流', '净水概念', '减肥药',
+    '减速器', '创投', '创新药', '动力电池回收', '动物疫苗', '化债概念(AMC概念)',
+    '化肥', '区块链', '医疗器械概念', '医美概念', '医药电商', '华为手机',
+    '华为数字能源', '华为昇腾', '华为概念', '华为欧拉', '华为汽车', '华为海思概念股',
+    '华为盘古', '华为鲲鹏', '卫星导航', '参股保险', '参股券商', '参股银行',
+    '可控核聚变', '可燃冰', '可降解塑料', '合成生物', '同花顺中特估100', '同花顺出海50',
+    '同花顺新质50', '同花顺果指数', '同花顺漂亮100', '商业航天', '啤酒概念', '固废处理',
+    '固态电池', '国产操作系统', '国产航母', '国企改革', '国家大基金持股', '国资云',
+    '土地流转', '土壤修复', '在线教育', '地下管网', '垃圾分类', '培育钻石',
+    '基因测序', '多模态AI', '大豆', '大飞机', '天津自贸区', '天然气',
+    '太赫兹', '央企国企改革', '存储芯片', '宁德时代概念', '安防', '宠物经济',
+    '家庭医生', '家用电器', '富士康概念', '小米概念', '小米汽车', '小红书概念',
+    '小金属概念', '工业互联网', '工业大麻', '工业母机', '幽门螺杆菌概念', '广东自贸区',
+    '建筑节能', '快手概念', '成飞概念', '房屋检测', '手机游戏', '托育服务',
+    '抖音概念(字节概念)', '抽水蓄能', '拼多多概念', '换电概念', '摘帽', '数字乡村',
+    '数字孪生', '数字水印', '数字经济', '数字货币', '数据中心(AIDC)', '数据安全',
+    '数据确权', '数据要素', '文化传媒概念', '新型城镇化', '新型工业化', '新型烟草(电子烟)',
+    '新疆振兴', '新股与次新股', '新能源汽车', '旅游概念', '无人机', '无人零售',
+    '无人驾驶', '无线充电', '无线耳机', '时空大数据', '星闪概念', '智慧城市',
+    '智慧政务', '智慧灯杆', '智能医疗', '智能家居', '智能座舱', '智能物流',
+    '智能电网', '智能穿戴', '智能音箱', '智谱AI', '有机硅概念', '期货概念',
+    '机器人概念', '机器视觉', '染料', '柔性屏(折叠屏)', '柔性直流输电', '核污染防治',
+    '核电', '横琴新区', '比亚迪概念', '毛发医疗', '毫米波雷达', '民爆概念',
+    '民营医院', '氟化工概念', '氢能源', '水利', '水泥概念', '污水处理',
+    '汽车拆解概念', '汽车热管理', '汽车电子', '汽车芯片', '沪股通', '注册制次新股',
+    '流感', '海南自贸区', '海峡两岸', '海工装备', '消毒剂', '消费电子概念',
+    '液冷服务器', '深圳国企改革', '深股通', '烟草', '煤化工概念', '煤炭概念',
+    '燃料电池', '牙科医疗', '物业管理', '物联网', '特斯拉概念', '特色小镇',
+    '特钢概念', '特高压', '独角兽概念', '猪肉', '猴痘概念', '玉米',
+    '环氧丙烷', '玻璃基板', '生态农业', '生物疫苗', '生物质能发电', '电力物联网',
+    '电子竞技', '电子纸', '电子身份证', '白酒概念', '百度概念', '盐湖提锂',
+    '眼科医疗', '知识产权保护', '短剧游戏', '石墨烯', '石墨电极', '硅能源',
+    '碳中和', '碳交易', '碳纤维', '磷化工', '福建自贸区', '禽流感',
+    '科创次新股', '租售同权', '移动支付', '稀土永磁', '空气能热泵', '空间计算',
+    '第三代半导体', '算力租赁', '粤港澳大湾区', '粮食概念', '细胞免疫治疗', '统一大市场',
+    '维生素', '绿色电力', '网红经济', '网约车', '网络安全', '网络游戏',
+    '职业教育', '肝炎概念', '股权转让(并购重组)', '脑机接口', '腾讯概念', '自由贸易港',
+    '航空发动机', '航运概念', '芬太尼', '芯片概念', '英伟达概念', '苹果概念',
+    '草甘膦', '虚拟数字人', '虚拟现实', '虚拟电厂', '蚂蚁集团概念', '融资融券',
+    '血氧仪', '装配式建筑', '西部大开发', '证金持股', '语音技术', '财税数字化',
+    '赛马概念', '超导概念', '超级品牌', '超级电容', '超超临界发电', '足球概念',
+    '跨境电商', '车联网(车路协同)', '转基因', '辅助生殖', '重组蛋白', '量子科技',
+    '金属回收', '金属钴', '金属铅', '金属铜', '金属锌', '金属镍',
+    '钒电池', '钙钛矿电池', '钛白粉概念', '钠离子电池', '铜缆高速连接', '锂电池概念',
+    '长三角一体化', '长安汽车概念', '阿尔茨海默概念', '阿里巴巴概念', '雄安新区', '雅下水电概念',
+    '露营经济', '青蒿素', '页岩气', '预制菜', '风电', '飞行汽车(eVTOL)',
+    '食品安全', '高压快充', '高压氧舱', '高端装备', '高股息精选', '高铁',
+    '鸿蒙概念', '黄金概念', '黑龙江自贸区',
+})
+
+# 东财名 -> 同花顺概念板块【确切存在】的标准名（30 条，目标均已校验在上面 375 集合内）。
 THS_CONCEPT_ALIAS = {
-    "光通信模块": "光模块", "半导体概念": "半导体", "算力概念": "算力", "AI概念": "人工智能",
-    "CPO概念": "CPO", "5G概念": "5G", "F5G概念": "F5G", "6G概念": "6G", "MLCC概念": "MLCC",
-    "AIGC概念": "AIGC", "LED概念": "LED", "OLED概念": "OLED", "MiniLED概念": "MiniLED",
+    'CPO概念': '共封装光学(CPO)',
+    'PCB': 'PCB概念',
+    '国产芯片': '芯片概念',
+    'AI芯片': '芯片概念',
+    '数据中心': '数据中心(AIDC)',
+    '电子烟': '新型烟草(电子烟)',
+    '华为海思': '华为海思概念股',
+    '阿里概念': '阿里巴巴概念',
+    '腾讯云': '腾讯概念',
+    '养老金': '养老概念',
+    '央国企改革': '国企改革',
+    '知识产权': '知识产权保护',
+    '并购重组概念': '股权转让(并购重组)',
+    '海南自贸': '海南自贸区',
+    '上海自贸': '上海自贸区',
+    '京津冀': '京津冀一体化',
+    '降解塑料': '可降解塑料',
+    '汽车一体化压铸': '一体化压铸',
+    '智能驾驶': '无人驾驶',
+    '新能源车': '新能源汽车',
+    '机器人执行器': '机器人概念',
+    '虚拟机器人': '机器人概念',
+    '毫米波概念': '毫米波雷达',
+    '旅游酒店': '旅游概念',
+    '核能核电': '核电',
+    '谷子经济': 'IP经济(谷子经济)',
+    '中字头': '中字头股票',
+    'PPP模式': 'PPP概念',
+    '东数西算': '东数西算(算力)',
+    '5G概念': '5G',
 }
-# 英文/数字开头的概念（CPO、5G、F5G…）同花顺习惯不带"概念"二字；中文概念保留原名。
-_EN_CONCEPT_RE = re.compile(r"^[A-Za-z0-9]+概念$")
+
+# 同花顺概念板块列表里没有、但在同花顺【搜索框】输入能搜到个股/资讯的习惯口语名
+# （如东财'光通信模块'，你平时和资金气泡图里都叫'光模块'，搜索框可搜，但它不是独立概念板块）。
+THS_SEARCH_FRIENDLY = {
+    '光通信模块': '光模块', '半导体概念': '半导体', '算力概念': '算力',
+    'AI概念': '人工智能', 'AIGC概念': 'AIGC', 'LED概念': 'LED',
+}
 
 
 def _to_ths_name(raw: str) -> str:
+    '''东财题材名 -> 同花顺口径名，五级择优，宁可不改也不硬编一个同花顺里不存在的名：
+    1)已核实别名(目标∈同花顺375概念) 2)本就同名 3)去'概念'后同花顺确有其名
+    4)搜索框习惯名 5)都不满足则保留东财原名(搜索框仍能搜到相关个股，不张冠李戴)。'''
     n = str(raw).strip()
     if n in THS_CONCEPT_ALIAS:
         return THS_CONCEPT_ALIAS[n]
-    if _EN_CONCEPT_RE.match(n):
+    if n in THS_CONCEPT_NAMES:
+        return n
+    if n.endswith('概念') and n[:-2] in THS_CONCEPT_NAMES:
         return n[:-2]
+    if n in THS_SEARCH_FRIENDLY:
+        return THS_SEARCH_FRIENDLY[n]
     return n
+
+
+def concept_ths_alignment(topn=300):
+    '''[自检用] 返回(精确对齐数, 总数, 未对齐东财名list)：精确对齐=输出名∈同花顺375概念集合。'''
+    rows, _ = em_sector_fund_flow('concept', topn=topn, drop_style=True, ths_name=True)
+    miss = [r['name_raw'] for r in rows if r['name'] not in THS_CONCEPT_NAMES]
+    return len(rows) - len(miss), len(rows), miss
 
 
 def em_sector_fund_flow(kind="concept", topn=15, direction="in", drop_style=True,
@@ -535,53 +758,210 @@ def em_sector_fund_flow(kind="concept", topn=15, direction="in", drop_style=True
     t = _EM_BOARD_KIND.get(kind, "3")
     po = 0 if direction == "out" else 1          # 东财：po=1 降序(净流入大→小)，po=0 升序(净流出最负在前)
     fields = "f12,f14,f3,f62,f184"
-    url_tail = (f"/api/qt/clist/get?pn=1&pz=100&po={po}&np=1&fltt=2&invt=2&fid=f62"
-                f"&fs=m:90+t:{t}&fields={fields}")
-    rows, used_host = [], None
+    rows, used_host, total = [], None, 10 ** 9
     for host in (hosts or EM_FUND_HOSTS):
-        try:
-            txt = _http_get(host + url_tail,
-                            headers={"User-Agent": UA, "Referer": "https://data.eastmoney.com/"},
-                            timeout=timeout, retry=1)
-            j = json.loads(txt)
-            diff = (j.get("data") or {}).get("diff") or []
-            if not diff:
-                continue
-            used_host = host
-            for x in diff:
-                raw_name = str(x.get("f14", "")).strip()
-                if kind == "concept" and drop_style and _is_style_concept(raw_name):
-                    continue
+        pn = 1
+        while pn <= 8:                            # 单页上限100，分页拉到够数或拉完（最多8页≈800）
+            url_tail = (f"/api/qt/clist/get?pn={pn}&pz=100&po={po}&np=1&fltt=2&invt=2&fid=f62"
+                        f"&fs=m:90+t:{t}&fields={fields}")
+            try:
+                txt = _http_get(host + url_tail,
+                                headers={"User-Agent": UA, "Referer": "https://data.eastmoney.com/"},
+                                timeout=timeout, retry=1)
+                j = json.loads(txt)
+                data = j.get("data") or {}
+                diff = data.get("diff") or []
+                total = data.get("total", total)
+                if not diff:
+                    break
+                used_host = host
+                for x in diff:
+                    raw_name = str(x.get("f14", "")).strip()
+                    if kind == "concept" and drop_style and _is_style_concept(raw_name):
+                        continue
 
-                def num(k):
-                    v = x.get(k)
-                    try:
-                        return float(v)
-                    except (TypeError, ValueError):
-                        return 0.0
-                rows.append({
-                    "code": x.get("f12", ""),
-                    "name_raw": raw_name,
-                    "name": (_to_ths_name(raw_name) if (kind == "concept" and ths_name) else raw_name),
-                    "net_yi": num("f62") / 1e8,        # 元 -> 亿
-                    "ratio_pct": num("f184"),          # 主力净占比 %
-                    "change_pct": num("f3"),           # 板块涨跌幅 %
-                })
-            break                                 # 该节点成功就不再换源
-        except Exception:
-            continue
-    # 流出榜按净额升序（最负在前）；流入榜按净额降序。drop_style 后顺序仍由 f62 决定，这里再保险排一次。
+                    def num(k, x=x):
+                        v = x.get(k)
+                        try:
+                            return float(v)
+                        except (TypeError, ValueError):
+                            return 0.0
+                    rows.append({
+                        "code": x.get("f12", ""),
+                        "name_raw": raw_name,
+                        "name": (_to_ths_name(raw_name) if (kind == "concept" and ths_name) else raw_name),
+                        "net_yi": num("f62") / 1e8,        # 元 -> 亿
+                        "ratio_pct": num("f184"),          # 主力净占比 %
+                        "change_pct": num("f3"),           # 板块涨跌幅 %
+                    })
+                if len(rows) >= topn or pn * 100 >= total:
+                    break
+                pn += 1
+                time.sleep(0.1)
+            except Exception:
+                break
+        if rows:
+            break                                 # 该节点取到数据就不再换源
+    # 流出榜按净额升序（最负在前）；流入榜按净额降序，保险再排一次。
     rows.sort(key=lambda r: r["net_yi"], reverse=(direction != "out"))
     return rows[:topn], used_host
 
 
-def hot_concepts(topn=15, direction="in", **kw):
-    """题材概念资金榜（已剔非题材标签、名字对齐同花顺搜索），返回可直接拼进报告的文本行 list[str]。"""
+# ==================================== 6.5) 同花顺资金流【主源·原生分类名，反反爬】
+# 反反爬原理：同花顺 data.10jqka.com.cn 资金接口要 hexin-v cookie（由官方 ths.js 的 v() 函数
+# 算出的 token）。用 py_mini_racer 执行 ths.js 得到 v，带 Cookie:v=... 即可正常访问（实测200）。
+# ths.js 直接读已安装 akshare 自带的那份（requirements 已含 akshare+py_mini_racer，无需新增依赖）。
+# 只取第1页50条（复盘只取TOP15，零翻页、规避同花顺快速翻页限流）：流入取涨幅降序页、流出取
+# 涨幅升序页，两页合并去重后本地按净额排序。缺依赖/被限流时返回[]，自动回退东财，绝不拖崩复盘。
+_THS_FUNDS_URL = "http://data.10jqka.com.cn/funds/{kind}/field/tradezdf/order/{order}/page/1/ajax/1/"
+_THS_KIND = {"concept": "gnzjl", "industry": "hyzjl"}
+_THS_V = {"v": None}
+# 同花顺资金页里混入的风格/宽基指数/持股类"假题材"黑名单（不是可交易题材）
+THS_STYLE_TAGS = {
+    "同花顺中特估100", "同花顺漂亮100", "高股息精选", "证金持股", "汇金持股", "社保险资重仓",
+    "社保重仓", "基金重仓", "QFII重仓", "机构重仓", "融资融券", "沪股通", "深股通", "港股通",
+    "MSCI中国", "MSCI概念", "富时罗素", "标普道琼斯A股", "创业板综", "上证50", "上证180",
+    "沪深300", "中证100", "中证500", "中证1000", "行业龙头", "百元股", "低价股", "高市盈率",
+    "低市盈率", "破净股", "次新股", "预盈预增", "业绩预增", "高派息",
+}
+_THS_STYLE_RE = re.compile(r"(持股|重仓|股通|精选|指数|综指|MSCI|罗素|标普|道琼斯)")
+
+
+def _ths_hexin_v(force=False):
+    """生成并缓存同花顺 hexin-v；缺依赖/失败返回 None（上层自动回退东财）。"""
+    if not force and _THS_V["v"]:
+        return _THS_V["v"]
+    try:
+        from py_mini_racer import MiniRacer
+        from akshare.datasets import get_ths_js
+        js = MiniRacer()
+        js.eval(open(get_ths_js("ths.js"), encoding="utf-8").read())
+        _THS_V["v"] = js.call("v")
+        return _THS_V["v"]
+    except Exception as e:
+        print(f"[同花顺] hexin-v 生成失败，将回退东财: {e}")
+        return None
+
+
+def _ths_funds_rows(kind, order):
+    """取同花顺资金流一页50条（order=desc涨幅降序/asc涨幅升序），正则解析，零pandas依赖。"""
+    seg = _THS_KIND.get(kind, "gnzjl")
+    v = _ths_hexin_v()
+    if not v:
+        return []
+    url = _THS_FUNDS_URL.format(kind=seg, order=order)
+    headers = {"User-Agent": UA, "Cookie": f"v={v}",
+               "Referer": f"http://data.10jqka.com.cn/funds/{seg}/"}
+    txt = None
+    for attempt in range(3):                     # 被限流就重试，必要时强制重新生成 v
+        try:
+            t = _http_get(url, headers=headers, decode="gbk", timeout=12, retry=0)
+            if "<tr" in t:
+                txt = t
+                break
+        except Exception:
+            pass
+        time.sleep(1.0 + attempt)
+        _ths_hexin_v(force=True)
+    if not txt:
+        return []
+    out = []
+    for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", txt, re.S):
+        tds = re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)
+        if len(tds) < 8:
+            continue
+
+        def cell(i):
+            return re.sub(r"<[^>]+>", "", tds[i]).strip()
+
+        def num(i):
+            try:
+                return float(cell(i).replace(",", "").replace("%", ""))
+            except (ValueError, IndexError):
+                return 0.0
+
+        name = cell(1)
+        if not name:
+            continue
+        if kind == "concept" and (name in THS_STYLE_TAGS or _THS_STYLE_RE.search(name)):
+            continue
+        out.append({
+            "name": name, "change_pct": num(3),
+            "in_yi": num(4), "out_yi": num(5), "net_yi": num(6),
+            "count": int(num(7)),
+            "leader": (re.sub(r"<[^>]+>", "", tds[8]).strip() if len(tds) > 8 else ""),
+        })
+    return out
+
+
+def ths_sector_fund_flow(kind="concept", topn=15, direction="in"):
+    """
+    同花顺板块资金流【主源，名字100%同花顺原生】。kind='concept'题材(gnzjl)/'industry'行业(hyzjl)。
+    涨幅降序+升序两页合并去重，本地按净额排序取TOP。返回 (rows, '同花顺')；全失败返回 ([], None)。
+    口径：同花顺资金页是【全口径资金净额=流入-流出】，与东财"主力净额(超大单+大单)"口径不同，
+    数值不可直接划等号，只用于资金方向/强弱排名。
+    """
+    try:
+        desc = _ths_funds_rows(kind, "desc")
+        time.sleep(0.3)
+        asc = _ths_funds_rows(kind, "asc")
+        pool, seen = [], set()
+        for r in desc + asc:
+            if r["name"] not in seen:
+                seen.add(r["name"])
+                pool.append(r)
+        if not pool:
+            return [], None
+        pool.sort(key=lambda x: x["net_yi"], reverse=(direction != "out"))
+        return pool[:topn], "同花顺"
+    except Exception as e:
+        print(f"[同花顺] {kind} 资金流失败: {e}")
+        return [], None
+
+
+def ths_hot_concepts(topn=15, direction="in"):
+    """同花顺题材概念资金榜文本行（原生概念名+公司家数+领涨股），失败返回[]。"""
+    rows, _ = ths_sector_fund_flow("concept", topn, direction)
+    sign = "净流入" if direction != "out" else "净流出"
+    out = []
+    for i, r in enumerate(rows):
+        lead = f"，领涨{r['leader']}" if r.get("leader") else ""
+        out.append(f'{i+1}. {r["name"]}：资金{sign}{abs(r["net_yi"]):.2f}亿'
+                   f'（{r["count"]}家，板块{r["change_pct"]:+.2f}%{lead}）')
+    return out
+
+
+def ths_industry_lines(topn=15, direction="in"):
+    """同花顺行业资金榜文本行（原生行业名），失败返回[]。"""
+    rows, _ = ths_sector_fund_flow("industry", topn, direction)
+    sign = "净流入" if direction != "out" else "净流出"
+    return [f'{i+1}. {r["name"]}：资金{sign}{abs(r["net_yi"]):.2f}亿'
+            f'（{r["count"]}家，{r["change_pct"]:+.2f}%）' for i, r in enumerate(rows)]
+
+
+def _em_concept_lines(topn, direction, **kw):
     rows, _ = em_sector_fund_flow("concept", topn=topn, direction=direction, **kw)
     sign = "净流入" if direction != "out" else "净流出"
     return [f'{i+1}. {r["name"]}：主力{sign}{abs(r["net_yi"]):.2f}亿'
             f'（占比{r["ratio_pct"]:.2f}%，板块{r["change_pct"]:+.2f}%）'
             for i, r in enumerate(rows)]
+
+
+def hot_concepts(topn=15, direction="in", prefer="ths", **kw):
+    """题材概念资金榜文本行：默认【同花顺主源·原生名】，失败自动回退东财；prefer='em'强制东财。"""
+    if prefer != "em":
+        lines = ths_hot_concepts(topn, direction)
+        if lines:
+            return lines
+    return _em_concept_lines(topn, direction, **kw)
+
+
+def hot_concepts_ex(topn=15, direction="in", **kw):
+    """同 hot_concepts，但返回 (文本行list, 数据源标注)，供报告写明口径。"""
+    lines = ths_hot_concepts(topn, direction)
+    if lines:
+        return lines, "同花顺(资金净额口径)"
+    return _em_concept_lines(topn, direction, **kw), "东方财富(主力净额口径·兜底)"
 
 
 # -------------------------------------------- 7) 行业层级折叠（吞掉"电子/通信"这种一级大筐）
@@ -707,8 +1087,15 @@ def collapse_industry_level(rows, name_key="name_raw", drop_top=True):
     return out
 
 
-def industry_fund_flow(topn=15, direction="in", collapse=True, **kw):
-    """行业资金榜文本行；collapse=True 时自动折叠一级大筐，只留细分行业。"""
+def industry_fund_flow(topn=15, direction="in", collapse=True, prefer="ths", **kw):
+    """
+    行业资金榜文本行。默认【同花顺行业主源·原生名】（同花顺行业本就是细分，无需折叠）；
+    同花顺不可用时回退东财申万行业池，collapse=True 折叠一级大筐只留细分。
+    """
+    if prefer != "em":
+        lines = ths_industry_lines(topn, direction)
+        if lines:
+            return lines
     rows, _ = em_sector_fund_flow("industry", topn=100, direction=direction, **kw)
     if collapse:
         rows = collapse_industry_level(rows)[:topn]
@@ -718,6 +1105,14 @@ def industry_fund_flow(topn=15, direction="in", collapse=True, **kw):
     return [f'{i+1}. {r["name_raw"]}：主力{sign}{abs(r["net_yi"]):.2f}亿'
             f'（占比{r["ratio_pct"]:.2f}%，{r["change_pct"]:+.2f}%）'
             for i, r in enumerate(rows)]
+
+
+def industry_fund_flow_ex(topn=15, direction="in", collapse=True, **kw):
+    """同 industry_fund_flow，返回 (文本行list, 数据源标注)。"""
+    lines = ths_industry_lines(topn, direction)
+    if lines:
+        return lines, "同花顺行业(资金净额口径)"
+    return industry_fund_flow(topn, direction, collapse, prefer="em", **kw), "东方财富申万行业(主力净额·兜底)"
 
 
 # ---------------------------------------------------------------- 演示
@@ -777,3 +1172,14 @@ if __name__ == "__main__":
         a = f'{raw[i]["name_raw"]} {raw[i]["net_yi"]:.1f}亿' if i < len(raw) else ""
         b = f'{folded[i]["name_raw"]} {folded[i]["net_yi"]:.1f}亿' if i < len(folded) else ""
         print(f"   原:{a:<22} -> 折叠后:{b}")
+
+    print("\n【八】一键收尾 finalize_report：括号代码全文标价 + 优选股票纯代码清单")
+    pick_report = (
+        "【打板多空风向标】\n"
+        "■ 强势聚焦（优选打板池）\n"
+        " 百大集团(600865) 一般零售 评分:9 | 早盘封板、3连板\n"
+        " 天沃科技(002564) 专用设备 评分:9 | 2连板\n"
+        " 龙版传媒(605577) 出版 评分:8 | 6连板\n"
+        "■ 走弱回避\n 平安银行(000001) 银行 评分:3 | 炸板\n"
+    )
+    print(finalize_report(pick_report, picked_suffix=True))

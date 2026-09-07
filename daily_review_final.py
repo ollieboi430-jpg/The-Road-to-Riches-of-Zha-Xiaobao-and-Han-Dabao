@@ -15,8 +15,9 @@ from sector_fund_flow import get_sector_fund_flow, FundLookup
 try:
     from market_enrich import (
         monitor_pool, price_map, tag_prices, dedupe_sw_industry,
-        hot_concepts, industry_fund_flow, enrich_named_sections,
-        rename_section_titles,
+        hot_concepts, hot_concepts_ex, industry_fund_flow, industry_fund_flow_ex,
+        enrich_named_sections, enrich_report_text, rename_section_titles,
+        market_suffix,
     )
     MARKET_ENRICH_AVAILABLE = True
 except ImportError:
@@ -178,18 +179,20 @@ except Exception as e:
 
 print(f"最终板块资金流向数据: {len(sector_fund_map)}个板块, 来源: {fund_source}")
 
-# ===== 市场增强：题材概念榜 + 折叠后的细分行业榜 =====
+# ===== 市场增强：题材概念榜 + 细分行业榜（同花顺主源·原生分类名，东财延时节点兜底）=====
 concept_in_lines = []
 industry_in_lines = []
+concept_fund_source = ""
+industry_fund_source = ""
 if MARKET_ENRICH_AVAILABLE and not IS_EVENING:
     try:
-        concept_in_lines = hot_concepts(15)
-        print(f"[market_enrich] 题材概念资金榜获取成功，共{len(concept_in_lines)}条")
+        concept_in_lines, concept_fund_source = hot_concepts_ex(15)
+        print(f"[market_enrich] 题材概念资金榜获取成功，共{len(concept_in_lines)}条，来源: {concept_fund_source}")
     except Exception as _e:
         print(f"[market_enrich] 题材概念资金榜获取失败: {_e}")
     try:
-        industry_in_lines = industry_fund_flow(15, collapse=True)
-        print(f"[market_enrich] 细分行业资金榜获取成功，共{len(industry_in_lines)}条")
+        industry_in_lines, industry_fund_source = industry_fund_flow_ex(15, collapse=True)
+        print(f"[market_enrich] 细分行业资金榜获取成功，共{len(industry_in_lines)}条，来源: {industry_fund_source}")
     except Exception as _e:
         print(f"[market_enrich] 细分行业资金榜获取失败: {_e}")
 
@@ -536,7 +539,9 @@ lines.append(f"===== {MODE_LABEL}报告 {today}（生成于北京时间{RUN_CLOC
 if SNAPSHOT_TIP:
     lines.append(SNAPSHOT_TIP)
     lines.append("")
-lines.append(f"数据来源: 涨停池(东方财富) + 资金流向({fund_source if fund_source else '未获取到'})")
+_show_src = concept_fund_source or industry_fund_source or fund_source or "未获取到"
+lines.append(f"数据来源: 涨停池(东方财富) + 题材/行业资金({_show_src}) + 行业交叉({fund_source if fund_source else '无'}) + 现价(腾讯)")
+lines.append("口径说明: 同花顺为全口径资金净额(流入-流出)，东财为主力净额(超大单+大单)，两者口径不同、数值不可直接划等号；现价各源均取自交易所撮合，数值一致")
 lines.append("")
 
 lines.append("【一、当日涨停总览】")
@@ -603,10 +608,12 @@ if not fund_ranking_in and not fund_ranking_out:
     lines.append("")
 
 if MARKET_ENRICH_AVAILABLE and not IS_EVENING:
-    lines.append("■ 最强风口（题材概念·主力净流入）")
+    _csrc = f"·{concept_fund_source}" if concept_fund_source else ""
+    lines.append(f"■ 最强风口（题材概念·资金净流入{_csrc}，名称与同花顺对齐）")
     lines.extend([f"  {x}" for x in concept_in_lines] if concept_in_lines else ["  题材概念资金榜暂未获取到"])
     lines.append("")
-    lines.append("■ 细分行业·主力净流入（已折叠一级大筐）")
+    _isrc = f"·{industry_fund_source}" if industry_fund_source else ""
+    lines.append(f"■ 细分行业·资金净流入{_isrc}")
     lines.extend([f"  {x}" for x in industry_in_lines] if industry_in_lines else ["  细分行业资金榜暂未获取到"])
     lines.append("")
 
@@ -642,6 +649,26 @@ if black_list:
     lines.append("")
 if not red_list and not black_list:
     lines.append("暂无符合条件的个股")
+    lines.append("")
+
+# 优选（红榜）股票代码清单：直接取结构化 red_list，只输出纯代码，方便整段复制导入
+if red_list and MARKET_ENRICH_AVAILABLE:
+    lines.append("■ 优选股票代码清单（红榜·仅代码，按评分排序）")
+    _picked = []
+    for name, code, ind, score, reason in red_list[:15]:
+        try:
+            _picked.append(f"{str(code).zfill(6)}{market_suffix(code)}")
+        except Exception:
+            _picked.append(str(code).zfill(6))
+    # 每行8个，逗号分隔，手机上也能整段选中复制
+    for i in range(0, len(_picked), 8):
+        lines.append("  " + ",".join(_picked[i:i+8]))
+    lines.append("")
+elif red_list:
+    lines.append("■ 优选股票代码清单（红榜·仅代码，按评分排序）")
+    _picked = [str(code).zfill(6) for name, code, ind, score, reason in red_list[:15]]
+    for i in range(0, len(_picked), 8):
+        lines.append("  " + ",".join(_picked[i:i+8]))
     lines.append("")
 
 lines.append("【六、昨日涨停今日表现】" + ("（上午盘中，涨跌幅为半日实时）" if IS_NOON else ""))
@@ -747,15 +774,14 @@ lines.append("  3.冲高闷杀：短暂冲高>=2%后快速回落，收盘跌>=1%
 
 report = "\n".join(lines)
 
-# ===== 市场增强：报告完成后只给红黑榜/好卖型标价格，再统一优化栏目标题 =====
+# ===== 市场增强：全文只要出现股票代码就标现价（根治子标题切分导致的漏标），再统一优化栏目标题 =====
 if MARKET_ENRICH_AVAILABLE:
     try:
-        report = enrich_named_sections(
-            report, ["红黑榜", "好卖型"], with_extra=False,
-            append_summary=True, summary_title="【红黑榜/好卖型 · 实时价格一览】"
-        )
+        # 全局标价：不再按栏目名匹配（旧逻辑遇到"■ 红榜/强势聚焦"子标题会被切成独立区块而漏标），
+        # 现在对整份报告扫描，任何"名称(代码)/代码.SH/裸6位代码"出现处都内联补"现价+涨跌幅"
+        report = enrich_report_text(report, inline="first", with_extra=False)
         report = rename_section_titles(report)
-        print("[market_enrich] 红黑榜/好卖型标价与标题优化完成")
+        print("[market_enrich] 全文股票标价与标题优化完成")
     except Exception as _e:
         print(f"[market_enrich] 报告增强失败，保留原报告: {_e}")
 print(f"报告生成完成，共{len(report)}字符")
