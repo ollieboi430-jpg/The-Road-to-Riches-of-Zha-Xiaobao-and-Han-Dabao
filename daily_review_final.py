@@ -13,7 +13,11 @@ from sector_fund_flow import get_sector_fund_flow, FundLookup
 
 # 市场增强模块：腾讯报价 + 海外可达静态监管名单 + 个股资金流备胎
 try:
-    from market_enrich import monitor_pool, price_map, tag_prices, dedupe_sw_industry
+    from market_enrich import (
+        monitor_pool, price_map, tag_prices, dedupe_sw_industry,
+        hot_concepts, industry_fund_flow, enrich_named_sections,
+        rename_section_titles,
+    )
     MARKET_ENRICH_AVAILABLE = True
 except ImportError:
     MARKET_ENRICH_AVAILABLE = False
@@ -173,6 +177,21 @@ except Exception as e:
     traceback.print_exc()
 
 print(f"最终板块资金流向数据: {len(sector_fund_map)}个板块, 来源: {fund_source}")
+
+# ===== 市场增强：题材概念榜 + 折叠后的细分行业榜 =====
+concept_in_lines = []
+industry_in_lines = []
+if MARKET_ENRICH_AVAILABLE and not IS_EVENING:
+    try:
+        concept_in_lines = hot_concepts(15)
+        print(f"[market_enrich] 题材概念资金榜获取成功，共{len(concept_in_lines)}条")
+    except Exception as _e:
+        print(f"[market_enrich] 题材概念资金榜获取失败: {_e}")
+    try:
+        industry_in_lines = industry_fund_flow(15, collapse=True)
+        print(f"[market_enrich] 细分行业资金榜获取成功，共{len(industry_in_lines)}条")
+    except Exception as _e:
+        print(f"[market_enrich] 细分行业资金榜获取失败: {_e}")
 
 # 6. 获取全市场行情（新浪财经接口）
 spot_map = {}
@@ -583,6 +602,14 @@ if not fund_ranking_in and not fund_ranking_out:
     lines.append("板块资金流向数据暂未获取到")
     lines.append("")
 
+if MARKET_ENRICH_AVAILABLE and not IS_EVENING:
+    lines.append("■ 最强风口（题材概念·主力净流入）")
+    lines.extend([f"  {x}" for x in concept_in_lines] if concept_in_lines else ["  题材概念资金榜暂未获取到"])
+    lines.append("")
+    lines.append("■ 细分行业·主力净流入（已折叠一级大筐）")
+    lines.extend([f"  {x}" for x in industry_in_lines] if industry_in_lines else ["  细分行业资金榜暂未获取到"])
+    lines.append("")
+
 lines.append("【四、资金流向与涨停股交叉分析】")
 lines.append("")
 if cross_analysis["both"]:
@@ -719,6 +746,18 @@ lines.append("  2.水下闷杀：低开后直接下行，全天趴在水面之�
 lines.append("  3.冲高闷杀：短暂冲高>=2%后快速回落，收盘跌>=1%，卖点窗口极短")
 
 report = "\n".join(lines)
+
+# ===== 市场增强：报告完成后只给红黑榜/好卖型标价格，再统一优化栏目标题 =====
+if MARKET_ENRICH_AVAILABLE:
+    try:
+        report = enrich_named_sections(
+            report, ["红黑榜", "好卖型"], with_extra=False,
+            append_summary=True, summary_title="【红黑榜/好卖型 · 实时价格一览】"
+        )
+        report = rename_section_titles(report)
+        print("[market_enrich] 红黑榜/好卖型标价与标题优化完成")
+    except Exception as _e:
+        print(f"[market_enrich] 报告增强失败，保留原报告: {_e}")
 print(f"报告生成完成，共{len(report)}字符")
 
 # ===== 邮件推送 =====
