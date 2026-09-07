@@ -1,0 +1,103 @@
+{
+  "updated_at": "2026-09-07T16:36:46.130758+08:00",
+  "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
+  "count": 12,
+  "data": [
+    {
+      "code": "300313",
+      "name": "天山生物",
+      "market": "SZ",
+      "start": "2026-08-26",
+      "end": "2026-09-08",
+      "days_left": 1
+    },
+    {
+      "code": "605255",
+      "name": "天普股份",
+      "market": "SH",
+      "start": "2026-08-27",
+      "end": "2026-09-09",
+      "days_left": 2
+    },
+    {
+      "code": "688496",
+      "name": "*ST清越",
+      "market": "SH",
+      "start": "2026-08-28",
+      "end": "2026-09-10",
+      "days_left": 3
+    },
+    {
+      "code": "301520",
+      "name": "万邦医药",
+      "market": "SZ",
+      "start": "2026-08-28",
+      "end": "2026-09-10",
+      "days_left": 3
+    },
+    {
+      "code": "300862",
+      "name": "蓝盾光电",
+      "market": "SZ",
+      "start": "2026-08-28",
+      "end": "2026-09-10",
+      "days_left": 3
+    },
+    {
+      "code": "920575",
+      "name": "*ST康乐",
+      "market": "BJ",
+      "start": "2026-09-07",
+      "end": "2026-09-11",
+      "days_left": 4
+    },
+    {
+      "code": "920090",
+      "name": "*ST同辉",
+      "market": "BJ",
+      "start": "2026-09-07",
+      "end": "2026-09-11",
+      "days_left": 4
+    },
+    {
+      "code": "920023",
+      "name": "*ST田野",
+      "market": "BJ",
+      "start": "2026-09-07",
+      "end": "2026-09-11",
+      "days_left": 4
+    },
+    {
+      "code": "605179",
+      "name": "一鸣食品",
+      "market": "SH",
+      "start": "2026-09-02",
+      "end": "2026-09-15",
+      "days_left": 8
+    },
+    {
+      "code": "603221",
+      "name": "爱丽家居",
+      "market": "SH",
+      "start": "2026-09-03",
+      "end": "2026-09-16",
+      "days_left": 9
+    },
+    {
+      "code": "000017",
+      "name": "深中华A",
+      "market": "SZ",
+      "start": "2026-09-03",
+      "end": "2026-09-16",
+      "days_left": 9
+    },
+    {
+      "code": "688121",
+      "name": "*ST卓然",
+      "market": "SH",
+      "start": "2026-09-04",
+      "end": "2026-09-17",
+      "days_left": 10
+    }
+  ]
+}

@@ -1,4 +1,28 @@
 {
+  "600108": {
+    "name": "亚盛集团",
+    "enter_date": "20260907",
+    "left_days": 10,
+    "index_name": "上证指数",
+    "last_dev": 58.03,
+    "last_win": 30
+  },
+  "600865": {
+    "name": "百大集团",
+    "enter_date": "20260907",
+    "left_days": 10,
+    "index_name": "上证指数",
+    "last_dev": 54.27,
+    "last_win": 30
+  },
+  "603696": {
+    "name": "安记食品",
+    "enter_date": "20260907",
+    "left_days": 10,
+    "index_name": "上证指数",
+    "last_dev": 54.84,
+    "last_win": 30
+  },
   "605577": {
     "name": "龙版传媒",
     "enter_date": "20260904",
@@ -12,7 +36,7 @@
     "enter_date": "20260907",
     "left_days": 10,
     "index_name": "上证指数",
-    "last_dev": 85.2,
+    "last_dev": 99.58,
     "last_win": 30
   },
   "002708": {
@@ -31,12 +55,20 @@
     "last_dev": 45.2,
     "last_win": 30
   },
+  "601949": {
+    "name": "中国出版",
+    "enter_date": "20260907",
+    "left_days": 10,
+    "index_name": "上证指数",
+    "last_dev": 25.05,
+    "last_win": 10
+  },
   "605398": {
     "name": "新炬网络",
     "enter_date": "20260904",
     "left_days": 10,
     "index_name": "上证指数",
-    "last_dev": 44.17,
+    "last_dev": 45.37,
     "last_win": 30
   },
   "605580": {
@@ -44,7 +76,7 @@
     "enter_date": "20260904",
     "left_days": 10,
     "index_name": "上证指数",
-    "last_dev": 38.02,
+    "last_dev": 43.74,
     "last_win": 30
   },
   "000892": {
@@ -66,17 +98,17 @@
   "600657": {
     "name": "信达地产",
     "enter_date": "20260904",
-    "left_days": 10,
+    "left_days": 9,
     "index_name": "上证指数",
-    "last_dev": 45.27,
+    "last_dev": 34.0,
     "last_win": 30
   },
   "603339": {
     "name": "四方科技",
     "enter_date": "20260907",
-    "left_days": 10,
+    "left_days": 9,
     "index_name": "上证指数",
-    "last_dev": -20.76,
+    "last_dev": -17.38,
     "last_win": 3
   },
   "002742": {
@@ -85,6 +117,14 @@
     "left_days": 10,
     "index_name": "深证成指",
     "last_dev": 32.76,
+    "last_win": 30
+  },
+  "000017": {
+    "name": "深中华A",
+    "enter_date": "20260907",
+    "left_days": 10,
+    "index_name": "深证成指",
+    "last_dev": 54.5,
     "last_win": 30
   }
 }
