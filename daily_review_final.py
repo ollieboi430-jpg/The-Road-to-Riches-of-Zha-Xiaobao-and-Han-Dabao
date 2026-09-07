@@ -11,6 +11,14 @@ from email.header import Header
 from datetime import datetime, timezone, timedelta
 from sector_fund_flow import get_sector_fund_flow, FundLookup
 
+# 市场增强模块：腾讯报价 + 海外可达静态监管名单 + 个股资金流备胎
+try:
+    from market_enrich import monitor_pool, price_map, tag_prices, dedupe_sw_industry
+    MARKET_ENRICH_AVAILABLE = True
+except ImportError:
+    MARKET_ENRICH_AVAILABLE = False
+    print("警告: market_enrich.py 未找到，市场增强功能不可用")
+
 # 监管预警模块（四层逻辑：技术触发→真实名单→交叉验证→预警分级）
 try:
     import monitor_alert_v2 as monitor
@@ -70,6 +78,26 @@ def _is_trade_day(d):
 if not _is_trade_day(today):
     print(f"{today} 非A股交易日，跳过本次复盘")
     raise SystemExit(0)
+
+# ===== 市场增强接入一：海外节点获取真实监管名单并持久化 =====
+market_monitor_rows = []
+market_monitor_prices = {}
+if MARKET_ENRICH_AVAILABLE and not IS_NOON:
+    try:
+        market_monitor_rows = monitor_pool(only_active=True, stock_only=True)
+        market_monitor_prices = price_map([x["code"] for x in market_monitor_rows]) if market_monitor_rows else {}
+        with open("stock_monitor.json", "w", encoding="utf-8") as _fp:
+            json.dump({
+                "updated_at": NOW_BJ.isoformat(),
+                "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
+                "count": len(market_monitor_rows),
+                "data": market_monitor_rows,
+            }, _fp, ensure_ascii=False, indent=2)
+        print(f"[market_enrich] stock_monitor.json 更新成功，共{len(market_monitor_rows)}只")
+    except Exception as _e:
+        print(f"[market_enrich] stock_monitor.json 获取失败: {_e}")
+else:
+    print("[market_enrich] 午盘模式跳过监管名单增强")
 
 # 1. 获取当日涨停池
 try:
@@ -642,6 +670,19 @@ if monitor_result:
     monitor_report = monitor.generate_report(monitor_result, today)
     lines.append(monitor_report)
     lines.append("")
+
+    # ===== 市场增强接入三：在【七、监管预警】中附加静态域名名单和腾讯报价 =====
+    if MARKET_ENRICH_AVAILABLE:
+        lines.append("【市场增强·海外节点监管名单】")
+        if market_monitor_rows:
+            lines.append(f"  静态域名真实名单：{len(market_monitor_rows)}只（已写入 stock_monitor.json）")
+            for _row in market_monitor_rows[:20]:
+                _code = _row.get("code", "")
+                _extra = market_monitor_prices.get(_code, "")
+                lines.append(f"  {_code} {_row.get('name', '')} {_row.get('start', '')}~{_row.get('end', '')} 剩{_row.get('days_left', '')}天 {_extra}")
+        else:
+            lines.append("  ⚠ 静态域名监管名单为空：请检查海外节点访问或更换官方备源")
+        lines.append("")
 else:
     lines.append("【七、监管预警】")
     lines.append("")

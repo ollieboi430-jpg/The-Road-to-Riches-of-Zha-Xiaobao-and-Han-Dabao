@@ -61,10 +61,10 @@ jobs:
       - name: 提交监管状态与触线缓存
         if: always()
         run: |
-          if [ ! -f monitor_state.json ] && [ ! -f monitor_tech_cache.json ]; then echo "未生成状态文件，跳过"; exit 0; fi
+          if [ ! -f monitor_state.json ] && [ ! -f monitor_tech_cache.json ] && [ ! -f stock_monitor.json ]; then echo "未生成状态文件，跳过"; exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add monitor_state.json monitor_tech_cache.json
+          git add monitor_state.json monitor_tech_cache.json stock_monitor.json
           if git diff --staged --quiet; then echo "状态无变化"; else
             git commit -m "chore: 收盘后更新监管状态与触线缓存 [skip ci]"
             git push origin HEAD:${{ github.ref_name }}
@@ -92,10 +92,10 @@ jobs:
       - name: 提交晚间监管状态
         if: always()
         run: |
-          if [ ! -f monitor_state.json ] && [ ! -f monitor_tech_cache.json ]; then echo "未生成状态文件，跳过"; exit 0; fi
+          if [ ! -f monitor_state.json ] && [ ! -f monitor_tech_cache.json ] && [ ! -f stock_monitor.json ]; then echo "未生成状态文件，跳过"; exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add monitor_state.json monitor_tech_cache.json
+          git add monitor_state.json monitor_tech_cache.json stock_monitor.json
           if git diff --staged --quiet; then echo "状态无变化"; else
             git commit -m "chore: 晚间更新监管真实名单与状态 [skip ci]"
             git push origin HEAD:${{ github.ref_name }}
