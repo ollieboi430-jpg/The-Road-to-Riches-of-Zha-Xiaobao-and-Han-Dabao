@@ -197,26 +197,42 @@ def monitor_pool(only_active=True, stock_only=True):
 
 
 # ---------------------------------------------------------------- 4) 申万行业层级去重
+_LEVEL_SUFFIX = re.compile(r"(Ⅲ|Ⅱ|Ⅰ|III|II|I)$")   # 申万层级后缀：一级裸名/带Ⅰ，二级Ⅱ，三级Ⅲ
+
+
+def _split_industry_level(name: str):
+    """'证券Ⅱ' -> ('证券', 2)；'银行' -> ('银行', 1)。兼容拉丁 II/III。"""
+    nm = str(name).strip()
+    m = _LEVEL_SUFFIX.search(nm)
+    if not m:
+        return nm, 1
+    lvl = {"Ⅲ": 3, "III": 3, "Ⅱ": 2, "II": 2, "Ⅰ": 1, "I": 1}.get(m.group(1), 1)
+    return nm[:m.start()].strip(), lvl
+
+
 def dedupe_sw_industry(rows, name_key="name", keep_level="L2"):
     """
-    解决"保险Ⅱ / 保险Ⅲ"数值完全相同、被算两次的问题。
-    rows: list[dict]，行业名字段由 name_key 指定（申万命名：一级无后缀、二级带Ⅱ、三级带Ⅲ）。
-    keep_level:
-      'L2' = 统一保留到二级：剔除所有三级(以Ⅲ结尾)行；一级、二级保留（默认，推荐）。
-      'L1' = 只留一级（同时剔除Ⅱ、Ⅲ）。
-    返回去重后的新列表。
+    解决同一行业被层级重复计算（实测会同时出现：
+      "证券Ⅲ"="证券Ⅱ"、"银行"="银行Ⅱ"、"保险Ⅱ"="保险Ⅲ"，数值完全相同）。
+    数据源把申万一级(裸名)、二级(Ⅱ)、三级(Ⅲ)混在一张表时，按"去掉层级后缀的行业名"
+    分组，每个行业只保留一条：
+      keep_level='L2'(默认推荐)：优先二级Ⅱ；该行业没有二级时回退保留一级裸名；剔除三级Ⅲ。
+      keep_level='L1'：优先一级裸名，没有才回退二级。
+    只有一级裸名的行业（非银金融/计算机/有色金属等）原样保留。输出保持首次出现顺序。
     """
-    lvl3 = re.compile(r"Ⅲ$|III$")                 # 以Ⅲ(三级)结尾
-    lvl2 = re.compile(r"Ⅱ$|II$")                  # 以Ⅱ(二级)结尾
-    res = []
-    for r in rows:
-        nm = str(r.get(name_key, "")).strip()
-        if keep_level == "L1" and (lvl2.search(nm) or lvl3.search(nm)):
-            continue
-        if keep_level == "L2" and lvl3.search(nm):
-            continue
-        res.append(r)
-    return res
+    pref = {"L2": {2: 0, 1: 1, 3: 2}, "L1": {1: 0, 2: 1, 3: 2}}[keep_level]
+    groups, order = {}, []
+    for idx, r in enumerate(rows):
+        base, lvl = _split_industry_level(r.get(name_key, ""))
+        if base not in groups:
+            groups[base] = []
+            order.append(base)
+        groups[base].append((pref.get(lvl, 9), idx, r))
+    out = []
+    for base in order:
+        groups[base].sort(key=lambda t: (t[0], t[1]))   # 层级优先，同级保持原序
+        out.append(groups[base][0][2])
+    return out
 
 
 # ---------------------------------------------------------------- 5) 个股资金流备胎（新浪，日度四档）
@@ -252,9 +268,10 @@ if __name__ == "__main__":
         print(f'  {s["code"]} {s["name"]}({s["market"]}) {s["start"]}~{s["end"]} '
               f'剩{s["days_left"]}天 | {extra}')
 
-    print("\n【三】申万行业层级去重（保险Ⅲ被剔除）")
-    demo_rows = [{"name": "营销代理", "out": 13.46}, {"name": "保险Ⅱ", "out": 13.27},
-                 {"name": "保险Ⅲ", "out": 13.27}, {"name": "证券Ⅱ", "out": 9.1},
-                 {"name": "证券Ⅲ", "out": 9.1}]
+    print("\n【三】申万行业层级去重（一级/二级/三级混表，每个行业只留一条，优先二级）")
+    demo_rows = [{"name": "非银金融", "out": 39.84}, {"name": "证券Ⅲ", "out": 22.17},
+                 {"name": "证券Ⅱ", "out": 22.17}, {"name": "银行", "out": 16.95},
+                 {"name": "银行Ⅱ", "out": 16.95}, {"name": "保险Ⅱ", "out": 13.27},
+                 {"name": "保险Ⅲ", "out": 13.27}, {"name": "有色金属", "out": 16.64}]
     for r in dedupe_sw_industry(demo_rows):
         print("  保留:", r)
