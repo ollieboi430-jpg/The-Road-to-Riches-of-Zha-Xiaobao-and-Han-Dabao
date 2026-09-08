@@ -1,16 +1,8 @@
 {
-  "updated_at": "2026-09-08T01:13:13.192116+08:00",
+  "updated_at": "2026-09-08T15:42:53.655716+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 15,
+  "count": 14,
   "data": [
-    {
-      "code": "300313",
-      "name": "天山生物",
-      "market": "SZ",
-      "start": "2026-08-26",
-      "end": "2026-09-08",
-      "days_left": 0
-    },
     {
       "code": "605255",
       "name": "天普股份",
