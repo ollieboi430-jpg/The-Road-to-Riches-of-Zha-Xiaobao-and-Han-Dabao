@@ -58,6 +58,25 @@ jobs:
           MAIL_USER: ${{ secrets.MAIL_USER }}
           MAIL_PASS: ${{ secrets.MAIL_PASS }}
           EM_PROXY_URL: ${{ secrets.EM_PROXY_URL }}
+      - name: 资金潜伏板块优质股筛选（主力流入但涨停极少→每板块选3支）
+        continue-on-error: true   # 附加功能，失败不影响主复盘流程
+        run: |
+          mkdir -p quality_pick_out
+          python quality_pick.py --outdir quality_pick_out
+        env:
+          EM_PROXY_URL: ${{ secrets.EM_PROXY_URL }}
+      - name: 提交优质股每日精选结果
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ -z "$(ls -A quality_pick_out 2>/dev/null)" ]; then echo "无输出，跳过"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add quality_pick_out
+          if git diff --staged --quiet; then echo "结果无变化"; else
+            git commit -m "chore: 更新资金潜伏优质股每日精选 [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
       - name: 提交监管状态与触线缓存
         if: always()
         run: |
