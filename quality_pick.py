@@ -55,6 +55,7 @@ class Cfg:
     min_member_inflow_wan: float = 0.0   # 个股主力净流入下限(万)，>0 要求资金也流入个股
     annual_years: int = 3           # ROE 连续性看最近几个年报
     min_score: float = 50.0         # 入选最低总分，达不到宁缺毋滥（避免小板块硬凑数）
+    reduce_veto_pct: float = 5.0    # 近半年股东累计减持占总股本≥该比例(%)直接否决（框架"疯狂减持"）
     keep_nodata: bool = False       # 财务缺失是否保留为观察项（默认剔除：无法证明优质）
     date: str = ""                  # 交易日 YYYYMMDD，空=自动取最近交易日
     outdir: str = "."
@@ -317,8 +318,146 @@ def load_fundamentals(codes, cfg, latest_period):
     return fund
 
 
+# ============================ 第3.5步：治理面自动核查（质押/回购/减持/连续分红）============================
+# 能从公开数据稳定取到的治理维度全部自动判定，不再丢给用户人工逐项查；
+# 仅"审计意见/违规记录/累计分红融资比"三项无公开批量接口，在报告末尾统一一行说明。
+def _ak_quiet(fn, *a, **k):
+    """调用 akshare 并压制 tqdm 进度条噪声，失败返回 None（治理面为增强项，不阻断主流程）。"""
+    import contextlib, io
+    try:
+        with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+            return fn(*a, **k)
+    except Exception:
+        return None
+
+
+def load_governance(lookback_days=180, use_cache=True):
+    """整市场取一次：质押比例、回购名单、近 lookback 天重要股东减持。返回查表 dict。
+    当日缓存到 _gov_cache_YYYYMMDD.json，午盘/收盘重复运行或本地调试时省去重复拉取。"""
+    import json
+    cache = f"_gov_cache_{_now_bj().strftime('%Y%m%d')}.json"
+    if use_cache and os.path.exists(cache):
+        try:
+            with open(cache, "r", encoding="utf-8") as fp:
+                c = json.load(fp)
+            return {"pledge": c["pledge"], "buyback": set(c["buyback"]),
+                    "reduce": c["reduce"], "ok": c["ok"]}
+        except Exception:
+            pass
+    import akshare as ak
+    gov = {"pledge": {}, "buyback": set(), "reduce": {}, "ok": []}
+    # 1) 大股东质押比例（仅有质押的公司才在榜，不在榜=无质押=0）
+    d = _ak_quiet(ak.stock_gpzy_pledge_ratio_em)
+    if d is not None and not d.empty:
+        for _, r in d.iterrows():
+            v = _num(r.get("质押比例"))
+            if v is not None:
+                gov["pledge"][str(r.get("股票代码", "")).zfill(6)] = v
+        gov["ok"].append("质押")
+    # 2) 正在/近期回购名单（该接口本身只列回购预案与实施中的公司）
+    d = _ak_quiet(ak.stock_repurchase_em)
+    if d is not None and not d.empty:
+        gov["buyback"] = set(str(c).zfill(6) for c in d["股票代码"])
+        gov["ok"].append("回购")
+    # 3) 重要股东近 N 天减持（聚合：次数 + 单次最大占总股本比例）
+    cutoff = _now_bj().date() - dt.timedelta(days=lookback_days)
+    d = _ak_quiet(ak.stock_ggcg_em, symbol="股东减持")
+    if d is not None and not d.empty:
+        for _, r in d.iterrows():
+            code = str(r.get("代码", "")).zfill(6)
+            if str(r.get("持股变动信息-增减", "")) != "减持":
+                continue
+            ad = r.get("公告日")
+            try:
+                if ad is not None and hasattr(ad, "date") and ad.date() < cutoff:
+                    continue
+            except Exception:
+                pass
+            ratio = _num(r.get("持股变动信息-占总股本比例"), 0.0) or 0.0
+            rec = gov["reduce"].setdefault(code, {"次数": 0, "最大占比": 0.0, "累计占比": 0.0})
+            rec["次数"] += 1
+            rec["最大占比"] = max(rec["最大占比"], ratio)
+            rec["累计占比"] += ratio  # 窗口内重要股东合计减持占总股本比例（比单纯次数更能反映套现压力）
+        gov["ok"].append("减持")
+    if use_cache:
+        try:
+            with open(cache, "w", encoding="utf-8") as fp:
+                json.dump({"pledge": gov["pledge"], "buyback": sorted(gov["buyback"]),
+                           "reduce": gov["reduce"], "ok": gov["ok"]}, fp, ensure_ascii=False)
+        except Exception:
+            pass
+    return gov
+
+
+def dividend_years(code):
+    """个股近年连续分红年数与累计派息（每10股派现，元），仅对最终入选股调用，best-effort。"""
+    import akshare as ak
+    d = _ak_quiet(ak.stock_dividend_cninfo, symbol=code)
+    if d is None or d.empty:
+        return None
+    try:
+        years = set()
+        total = 0.0
+        for _, r in d.iterrows():
+            pay = _num(r.get("派息比例"))
+            datev = r.get("实施方案公告日期")
+            if pay and pay > 0:
+                total += pay
+                try:
+                    years.add(str(datev)[:4])
+                except Exception:
+                    pass
+        return {"分红年数": len(years), "累计每10股派现": round(total, 2)}
+    except Exception:
+        return None
+
+
+def governance_view(code, gov):
+    """返回某股治理面：评级 绿/黄/红 + 标签 + 分数调整。"""
+    pledge = gov["pledge"].get(code)
+    has_buy = code in gov["buyback"]
+    red = gov["reduce"].get(code)
+    tags, adj = [], 0
+    # 质押
+    if pledge is None:
+        tags.append("无质押")
+    elif pledge > 50:
+        tags.append(f"质押{pledge:.0f}%偏高"); adj -= 8
+    elif pledge > 20:
+        tags.append(f"质押{pledge:.0f}%"); adj -= 3
+    else:
+        tags.append(f"质押{pledge:.0f}%低")
+    # 回购
+    if has_buy:
+        tags.append("近一年有回购"); adj += 3
+    # 减持：看累计套现比例与单次峰值，避免大盘股股东多、次数多被误伤
+    if red:
+        cum, mx = red["累计占比"], red["最大占比"]
+        if cum >= 3 or mx >= 2:
+            tags.append(f"近半年股东累计减持{cum:.1f}%"); adj -= 6
+            red_level = "big"
+        elif cum >= 1:
+            tags.append(f"近半年小幅减持{cum:.1f}%"); adj -= 2
+            red_level = "small"
+        elif red["次数"] >= 5:
+            tags.append("近半年多笔零星减持"); adj -= 1
+            red_level = "small"
+        else:
+            red_level = None  # 零星极小额减持，不贴风险标签、不扣分
+    else:
+        red_level = None
+    # 评级
+    high_pledge = pledge is not None and pledge > 50
+    big_reduce = red_level == "big"
+    small_reduce = red_level == "small"
+    grade = "红" if (high_pledge or big_reduce) else \
+            ("黄" if ((pledge and pledge > 20) or small_reduce) else "绿")
+    return {"grade": grade, "tags": tags, "adj": adj, "pledge": pledge,
+            "buyback": has_buy, "reduce": red}
+
+
 # ============================ 第4步：五维打分 + 一票否决 ============================
-def _veto(m, f, is_high_debt_industry, cfg):
+def _veto(m, f, is_high_debt_industry, cfg, gview=None):
     """返回否决原因字符串；None=通过。"""
     if _is_st(m["name"]):
         return "ST/退市风险"
@@ -326,6 +465,13 @@ def _veto(m, f, is_high_debt_industry, cfg):
         return "停牌/无报价"
     if m["chg"] is not None and m["chg"] >= _zt_threshold(m["code"]):
         return "当日已涨停(不追高)"
+    if gview is not None and gview["pledge"] is not None and gview["pledge"] > 70:
+        return "大股东质押比例过高"
+    if gview is not None and gview.get("reduce"):
+        _cum = gview["reduce"].get("累计占比", 0.0)
+        _mx = gview["reduce"].get("最大占比", 0.0)
+        if _cum >= cfg.reduce_veto_pct or _mx >= 3:  # 框架"大股东疯狂减持套现"一票否决（比例见治理标签）
+            return "股东大额减持套现"
     if not f:
         return "无财务数据" if not cfg.keep_nodata else None
     roe, np_, ocf = f.get("roe"), f.get("netprofit"), f.get("ocfps")
@@ -351,9 +497,9 @@ def _veto(m, f, is_high_debt_industry, cfg):
     return None
 
 
-def score(m, f, sector_rank_pct, is_high_debt_industry):
-    """五维百分制。返回 (总分, 明细dict)。sector_rank_pct=该股主力净流入在板块内的分位(0~1)。"""
-    s = {"矛_盈利": 0, "盾_健康": 0, "股东回报": 0, "估值": 0, "资金共振": 0}
+def score(m, f, sector_rank_pct, is_high_debt_industry, gview=None, div=None):
+    """五维百分制 + 治理面调整。返回 (总分, 明细dict)。sector_rank_pct=主力净流入板块内分位(0~1)。"""
+    s = {"矛_盈利": 0, "盾_健康": 0, "股东回报": 0, "估值": 0, "资金共振": 0, "治理面调整": 0}
     f = f or {}
     # —— 矛：盈利能力(40) ——
     roe = f.get("roe")
@@ -398,7 +544,8 @@ def score(m, f, sector_rank_pct, is_high_debt_industry):
         s["股东回报"] += 6 if dy >= 3 else 4 if dy >= 1 else 2 if dy > 0 else 0
     if any(k in f.get("div_plan", "") for k in ("派", "送", "转")):
         s["股东回报"] += 3
-    # （分红融资比/注销回购无日频数据，留人工复核，不打分）
+    if div and div.get("分红年数"):
+        s["股东回报"] += 3 if div["分红年数"] >= 3 else 1 if div["分红年数"] >= 1 else 0  # 连续分红
     # —— 估值(16) ——
     pe = m.get("pe_ttm")
     if pe is not None and pe > 0:
@@ -415,125 +562,173 @@ def score(m, f, sector_rank_pct, is_high_debt_industry):
     s["资金共振"] += 4 if mr >= 10 else 3 if mr >= 5 else 1 if mr > 0 else 0
     chg = m.get("chg", 0)
     s["资金共振"] += 2 if 0 <= chg <= 6 else 1 if -2 <= chg < 0 else 0  # 温和上涨最佳，不追高
-    total = round(sum(s.values()), 1)
+    # 治理面调整（质押扣分/回购加分/减持扣分），计入总分并在明细单列
+    if gview is not None:
+        s["治理面调整"] = gview["adj"]
+    total = round(max(0.0, min(100.0, sum(s.values()))), 1)
     return total, s
 
 
-# ============================ 主流程 ============================
-def run(cfg: Cfg):
+# ============================ 主流程（可被复盘主程序直接复用）============================
+def screen(cfg: Cfg, df_fund=None, zt_industry=None, zt_codes=None, trade_date=None, verbose=True):
+    """核心筛选。df_fund/zt_industry 可由复盘主程序传入以复用已取数据、避免重复请求。
+    返回 result dict：trade_date / sectors / picks / all_pass / gov_ok / latest。"""
     t0 = time.time()
-    trade_date = cfg.date or latest_trade_date()
-    print(f"=== 资金潜伏板块优质股筛选 · 交易日 {trade_date} ===")
+    trade_date = trade_date or cfg.date or latest_trade_date()
+    vlog = (lambda *a: print(*a)) if verbose else (lambda *a: None)
+    vlog(f"=== 资金潜伏板块优质股筛选 · 交易日 {trade_date} ===")
 
-    # 1) 板块资金 + 涨停池
-    df_fund = load_sector_fund(cfg)
+    if df_fund is None:
+        df_fund = load_sector_fund(cfg)
     lookup = FundLookup(df_fund)
-    zt_industry, zt_codes, used_date = load_zt(trade_date)
+    if zt_industry is None:
+        zt_industry, zt_codes, used_date = load_zt(trade_date)
+    else:
+        used_date = trade_date
 
-    # 2) 候选板块（流入大、涨停少）
     sectors = select_sectors(df_fund, zt_industry, lookup, cfg)
-    print(f"[选板块] 主力净流入≥{cfg.min_inflow_yi}亿 且 涨停≤{cfg.max_zt} 的板块：{len(sectors)}个")
+    vlog(f"[选板块] 主力净流入≥{cfg.min_inflow_yi}亿 且 涨停≤{cfg.max_zt} 的板块：{len(sectors)}个")
 
-    picks, all_pass, chosen = [], [], set()  # chosen：跨重叠板块全局去重，保证精选名单不重复
+    # 治理面整市场只取一次（质押/回购/减持）
+    gov = load_governance()
+    vlog("[治理面] 自动核查已覆盖：" + ("、".join(gov["ok"]) if gov["ok"] else "暂无可用数据源"))
+
+    picks, all_pass, chosen = [], [], set()
     for sec in sectors:
         try:
             members = board_members(sec["代码"])
         except Exception as e:
-            print(f"  × {sec['板块']} 成分股取失败：{e}")
+            vlog(f"  × {sec['板块']} 成分股取失败：{e}")
             continue
         pos = sum(1 for x in members if x["main_in"] > 0)
         breadth = pos / len(members) if members else 0
         sec["成分股数"] = len(members)
         sec["资金流入广度"] = round(breadth, 2)
         if breadth < cfg.min_breadth:
-            print(f"  · {sec['板块']} 流入广度仅{breadth:.0%}（<{cfg.min_breadth:.0%}），不算'大面积'，跳过")
+            vlog(f"  · {sec['板块']} 流入广度仅{breadth:.0%}（<{cfg.min_breadth:.0%}），跳过")
             continue
 
-        # 板块内主力净流入排名分位
         order = sorted(range(len(members)), key=lambda i: -members[i]["main_in"])
         rank = {idx: 1 - (r / max(1, len(members) - 1)) for r, idx in enumerate(order)}
+        cap_order = sorted(range(len(members)), key=lambda i: -members[i]["mktcap_yi"])
         is_hd = any(k in sec["板块"] for k in _HIGH_DEBT_INDUSTRY)
 
-        codes = [x["code"] for x in members]
-        fund = load_fundamentals(codes, cfg, LATEST)
-        cand = []
-        veto_cnt = {}
+        fund = load_fundamentals([x["code"] for x in members], cfg, LATEST)
+        cand, veto_cnt = [], {}
         for i, m in enumerate(members):
             f = fund.get(m["code"], {})
-            why = _veto(m, f, is_hd, cfg)
+            gv = governance_view(m["code"], gov)
+            why = _veto(m, f, is_hd, cfg, gv)
             if why:
                 veto_cnt[why] = veto_cnt.get(why, 0) + 1
                 continue
-            tot, det = score(m, f, rank[i], is_hd)
+            tot, det = score(m, f, rank[i], is_hd, gv, None)
             cand.append({**m, **{f"fin_{k}": v for k, v in f.items() if k != "ann"},
-                         "总分": tot, "评分明细": det,
-                         "市值板块排名": sorted(order, key=lambda i: -members[i]["mktcap_yi"]).index(i) + 1,
-                         "年报序列": f.get("ann", [])})
+                         "_f": f, "总分": tot, "评分明细": det, "治理": gv, "分红": None,
+                         "市值板块排名": cap_order.index(i) + 1, "年报序列": f.get("ann", [])})
+        # 连续分红只需对"有望入选"的少数候选补查（按初步分取前12，控制请求量）
         cand.sort(key=lambda x: (-x["总分"], -x["main_in"]))
-        # 跨板块去重：已被资金流入更大的前序板块选走的个股，这里顺延给下一只
+        for x in cand[:12]:
+            div = dividend_years(x["code"])
+            if div:
+                x["分红"] = div
+                x["总分"], x["评分明细"] = score(x, x["_f"], 0, is_hd, x["治理"], div)
+        cand.sort(key=lambda x: (-x["总分"], -x["main_in"]))
         qualified = [x for x in cand
                      if x["总分"] >= cfg.min_score and x["code"] not in chosen]
         top = qualified[: cfg.per_sector]
         chosen.update(x["code"] for x in top)
         if len(top) < cfg.per_sector:
-            print(f"  · {sec['板块']}：达{cfg.min_score:.0f}分且未重复的仅{len(qualified)}只，"
-                  f"不足{cfg.per_sector}只，宁缺毋滥只给{len(top)}只（其余见CSV）")
+            vlog(f"  · {sec['板块']}：达{cfg.min_score:.0f}分且未重复的仅{len(qualified)}只，"
+                 f"宁缺毋滥只给{len(top)}只")
         for x in top:
-            x["所属板块"] = sec["板块"]
-            picks.append(x)
+            x["所属板块"] = sec["板块"]; picks.append(x)
         for x in cand:
             x["所属板块"] = sec["板块"]; all_pass.append(x)
-        print(f"  ✓ {sec['板块']}：{len(members)}只，广度{breadth:.0%}，"
-              f"否决{sum(veto_cnt.values())}只，入选{len(top)}只 "
-              f"（否决分布：{veto_cnt}）")
+        vlog(f"  ✓ {sec['板块']}：{len(members)}只，广度{breadth:.0%}，"
+             f"否决{sum(veto_cnt.values())}只，入选{len(top)}只 {veto_cnt}")
 
-    _output(sectors, picks, all_pass, used_date, cfg, t0)
-    return sectors, picks, all_pass
+    vlog(f"[完成] 精选{len(picks)}只，耗时{time.time()-t0:.1f}s")
+    return {"trade_date": used_date, "sectors": [s for s in sectors if "资金流入广度" in s],
+            "picks": picks, "all_pass": all_pass, "gov_ok": gov["ok"], "latest": LATEST}
 
 
-def _output(sectors_kept, picks, all_pass, trade_date, cfg, t0):
-    os.makedirs(cfg.outdir, exist_ok=True)
-    # —— 控制台简报 ——
-    print("\n" + "=" * 72)
-    print(f"每日精选（每板块前{cfg.per_sector}，报告期 {LATEST}，交易日 {trade_date}）")
-    print("=" * 72)
+def run(cfg: Cfg):
+    """独立运行：screen + 落盘 TXT/CSV。"""
+    result = screen(cfg)
+    _output(result, cfg)
+    return result
+
+
+def _pick_line(x, indent="  "):
+    """单只精选的统一文本行（控制台/TXT/复盘邮件共用）。"""
+    code_suf = f"{x['code']}{market_suffix(x['code'])}"
+    roe, gm, pe = x.get("fin_roe"), x.get("fin_gross_margin"), x.get("pe_ttm")
+    gv = x.get("治理") or {}
+    grade_mark = {"绿": "治理🟢", "黄": "治理🟡", "红": "治理🔴"}.get(gv.get("grade"), "")
+    tags = "、".join(gv.get("tags", []))
+    div = x.get("分红")
+    div_txt = f" 连续分红{div['分红年数']}年" if div and div.get("分红年数") else ""
+    return (f"{indent}{x['name']}({code_suf}) 总分{x['总分']} {grade_mark}｜"
+            f"现价{x['price']} 涨{x['chg']}%｜主力净流入{x['main_in']/1e8:.2f}亿(占比{x['main_ratio']}%)｜"
+            f"ROE {roe if roe is None else round(roe,1)}% 毛利{gm if gm is None else round(gm,1)}% "
+            f"PE {pe if pe is None else round(pe,1)} PB {x['pb'] if x['pb'] is None else round(x['pb'],2)}"
+            f"{div_txt}｜{tags}")
+
+
+def render_section_lines(result, cfg=None, title="【九、资金潜伏·优质股精选（主力流入但未涨停，自动核查治理面）】"):
+    """生成可直接拼进每日复盘邮件的文本行；复盘主程序调用它即可，无需另跑或翻文件。"""
+    cfg = cfg or Cfg()
+    sectors, picks = result["sectors"], result["picks"]
+    L = [title, ""]
+    if not picks:
+        L.append("  今日无同时满足『资金大面积流入+涨停极少+财务/治理达标』的板块个股。")
+        L.append("")
+        return L
+    sec_map = {s["板块"]: s for s in sectors}
     cur = None
-    lines = []
     for x in picks:
         if x["所属板块"] != cur:
-            cur = x["所属板块"]
-            sec = next(s for s in sectors_kept if s["板块"] == cur)
-            head = (f"\n■ {cur}｜主力净流入{sec['主力净流入亿']:.2f}亿、"
-                    f"涨停{sec['涨停数']}只、流入广度{sec.get('资金流入广度', 0):.0%}")
-            print(head); lines.append(head)
-        code_suf = f"{x['code']}{market_suffix(x['code'])}"
-        roe = x.get("fin_roe"); gm = x.get("fin_gross_margin"); pe = x.get("pe_ttm")
-        row = (f"  {x['name']}({code_suf}) 总分{x['总分']}｜现价{x['price']} 涨{x['chg']}%｜"
-               f"主力净流入{x['main_in']/1e8:.2f}亿(占比{x['main_ratio']}%)｜"
-               f"ROE {roe if roe is None else round(roe,1)}% 毛利{gm if gm is None else round(gm,1)}% "
-               f"PE {pe if pe is None else round(pe,1)} PB "
-               f"{x['pb'] if x['pb'] is None else round(x['pb'],2)}")
-        print(row); lines.append(row)
-    note = ("\n【人工复核清单（程序无日频数据、不打分，买入前必看）】每个入选股请人工确认："
-            "①护城河/行业地位(程序仅给板块内市值排名) ②管理层是否违规/频繁减持 ③审计意见是否标准无保留、"
-            "是否频繁换所 ④大股东质押比例 ⑤累计分红是否超过累计融资 ⑥有无注销式回购。")
-    print(note); lines.append(note)
-    warn = ("\n⚠ 仅为量化初筛，不构成投资建议；'资金流入但未涨停'是潜伏思路，同样可能不涨或补跌，"
-            "请结合大盘与自身风险承受能力决策。")
-    print(warn); lines.append(warn)
+            cur = x["所属板块"]; s = sec_map.get(cur, {})
+            L.append(f"■ {cur}｜主力净流入{s.get('主力净流入亿', 0):.2f}亿、"
+                     f"涨停{s.get('涨停数', 0)}只、板块内{s.get('资金流入广度', 0):.0%}个股资金流入")
+        L.append(_pick_line(x))
+    # 纯代码清单，方便整段复制导入（与红榜代码清单同样式）
+    L.append("")
+    codes = [f"{x['code']}{market_suffix(x['code'])}" for x in picks]
+    L.append("■ 精选代码清单（仅代码，按板块/评分排序）")
+    for i in range(0, len(codes), 8):
+        L.append("  " + ",".join(codes[i:i + 8]))
+    L.append("")
+    gov_ok = "、".join(result.get("gov_ok", [])) or "暂不可用"
+    L.append(f"  说明：治理面已自动核查【{gov_ok}、连续分红年数、板块内市值/资金排名】并计入总分"
+             "（🟢良好/🟡关注/🔴风险；高质押与近期减持扣分、回购与连续分红加分，质押>70%直接剔除）。")
+    L.append("  仅『审计意见、违规/问询记录、累计分红vs累计融资』三项无公开批量接口，需要时在交易软件F10一眼可见，其余无需再人工排查。")
+    L.append("  ⚠ 量化初筛不构成投资建议；潜伏思路同样可能不涨或补跌，请结合大盘与自身风险承受力决策。")
+    L.append("")
+    return L
 
-    # —— TXT（可贴复盘报告）——
+
+def _output(result, cfg):
+    os.makedirs(cfg.outdir, exist_ok=True)
+    sectors, picks, all_pass = result["sectors"], result["picks"], result["all_pass"]
+    trade_date = result["trade_date"]
+    os.makedirs(cfg.outdir, exist_ok=True)
+    body = render_section_lines(result, cfg, title=f"每日精选（每板块前{cfg.per_sector}，报告期 {result['latest']}，交易日 {trade_date}）")
+    print("\n".join(body))
+
     txt_path = os.path.join(cfg.outdir, f"quality_pick_每日精选_{trade_date}.txt")
     with open(txt_path, "w", encoding="utf-8") as fp:
-        fp.write("\n".join(lines))
-    # —— CSV（通过否决的全部候选，不止3只，便于自己再挑）——
+        fp.write("\n".join(body))
     if all_pass:
         df = pd.DataFrame(all_pass)
-        show = ["所属板块", "code", "name", "总分", "price", "chg", "main_in", "main_ratio",
-                "turnover", "pe_ttm", "pb", "mktcap_yi", "市值板块排名",
+        df["治理评级"] = df["治理"].apply(lambda g: (g or {}).get("grade"))
+        df["治理标签"] = df["治理"].apply(lambda g: "、".join((g or {}).get("tags", [])))
+        show = ["所属板块", "code", "name", "总分", "治理评级", "治理标签", "price", "chg",
+                "main_in", "main_ratio", "turnover", "pe_ttm", "pb", "mktcap_yi", "市值板块排名",
                 "fin_roe", "fin_gross_margin", "fin_revenue", "fin_rev_yoy", "fin_netprofit",
                 "fin_np_yoy", "fin_ocfps", "fin_debt_ratio", "fin_div_yield", "fin_div_plan",
-                "评分明细"]
+                "分红", "评分明细"]
         df = df[[c for c in show if c in df.columns]].rename(columns={
             "code": "代码", "name": "名称", "price": "现价", "chg": "涨跌幅%",
             "main_in": "主力净流入元", "main_ratio": "主力净占比%", "turnover": "换手%",
@@ -544,10 +739,18 @@ def _output(sectors_kept, picks, all_pass, trade_date, cfg, t0):
         df.sort_values(["所属板块", "总分"], ascending=[True, False]).to_csv(
             csv_path, index=False, encoding="utf-8-sig")
         print(f"\n[输出] 精选文本：{txt_path}\n[输出] 候选全量CSV：{csv_path}（{len(df)}只过否决）")
-    print(f"[耗时] {time.time()-t0:.1f}s")
 
 
 LATEST = ""  # 运行时填充最新报告期
+
+
+def screen_for_review(df_fund, zt_industry, trade_date, cfg=None, verbose=False):
+    """供每日复盘主程序调用：自动探测报告期 → 筛选 → 返回 result（内部吞不掉的异常交由调用方兜底）。"""
+    global LATEST
+    if not LATEST:
+        LATEST = detect_latest_period()
+    return screen(cfg or Cfg(), df_fund=df_fund, zt_industry=zt_industry,
+                  trade_date=trade_date, verbose=verbose)
 
 
 def main():
@@ -561,6 +764,7 @@ def main():
     ap.add_argument("--min-member-inflow-wan", type=float, default=0.0, help="个股主力净流入下限(万)")
     ap.add_argument("--annual-years", type=int, default=3, help="ROE连续性看几年年报，默认3")
     ap.add_argument("--min-score", type=float, default=50.0, help="入选最低总分，默认50，宁缺毋滥")
+    ap.add_argument("--reduce-veto-pct", type=float, default=5.0, help="近半年累计减持≥该比例(%%)否决，默认5")
     ap.add_argument("--keep-nodata", action="store_true", help="财务缺失也保留为观察项")
     ap.add_argument("--date", default="", help="交易日YYYYMMDD，默认自动")
     ap.add_argument("--outdir", default=".", help="输出目录")
@@ -568,7 +772,8 @@ def main():
     cfg = Cfg(min_inflow_yi=a.min_inflow, max_zt=a.max_zt, min_breadth=a.min_breadth,
               top_sectors=a.top_sectors, per_sector=a.per_sector,
               min_member_inflow_wan=a.min_member_inflow_wan, annual_years=a.annual_years,
-              min_score=a.min_score, keep_nodata=a.keep_nodata, date=a.date, outdir=a.outdir)
+              min_score=a.min_score, reduce_veto_pct=a.reduce_veto_pct,
+              keep_nodata=a.keep_nodata, date=a.date, outdir=a.outdir)
     LATEST = detect_latest_period()
     print(f"[财务] 采用最新报告期：{LATEST}")
     run(cfg)

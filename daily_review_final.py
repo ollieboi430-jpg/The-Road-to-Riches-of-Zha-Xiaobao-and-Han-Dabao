@@ -31,6 +31,14 @@ try:
 except ImportError:
     MONITOR_AVAILABLE = False
     print("警告: monitor_alert_v2.py 未找到，监管预警功能不可用")
+
+# 资金潜伏·优质股筛选模块（主力流入但涨停极少→每板块选3，自动核查治理面，结果并入本报告）
+try:
+    import quality_pick
+    QUALITY_PICK_AVAILABLE = True
+except Exception as _e:  # 该模块为附加能力，任何导入问题都不影响主复盘
+    QUALITY_PICK_AVAILABLE = False
+    print(f"警告: quality_pick.py 不可用，优质股精选不并入：{_e}")
 # ===== 双复盘模式：--mode noon=午盘半日复盘(11:35) / close=全天收盘复盘(15:35，默认) =====
 import argparse
 # 统一用北京时间判断运行窗口（GitHub Actions 服务器默认是 UTC，不能直接用 datetime.now()）
@@ -771,6 +779,27 @@ lines.append("■ 坑人涨停的典型走势")
 lines.append("  1.高开下杀：高开>=2%，10分钟内快速翻绿，全天无有效红盘卖点")
 lines.append("  2.水下闷杀：低开后直接下行，全天趴在水面之下，最高都翻不了红")
 lines.append("  3.冲高闷杀：短暂冲高>=2%后快速回落，收盘跌>=1%，卖点窗口极短")
+
+# ===== 【九】资金潜伏·优质股精选：复用本程序已取的板块资金(df_fund)与涨停池(df_zt)，结果直接并入本邮件 =====
+if QUALITY_PICK_AVAILABLE and not IS_EVENING:
+    try:
+        _df_fund = locals().get("df_fund", None)
+        if _df_fund is not None and not _df_fund.empty and "df_zt" in locals() and df_zt is not None and not df_zt.empty:
+            _zt_ind = df_zt["所属行业"].fillna("").astype(str).value_counts().to_dict()
+            print("正在生成【九、资金潜伏·优质股精选】（含治理面自动核查，约1-3分钟）...")
+            _qp = quality_pick.screen_for_review(_df_fund, _zt_ind, today, verbose=True)
+            lines.extend(quality_pick.render_section_lines(_qp))
+            print(f"【九】完成，精选{len(_qp['picks'])}只，已并入报告")
+        else:
+            lines.append("【九、资金潜伏·优质股精选】")
+            lines.append("  板块资金或涨停池数据缺失，本次跳过。")
+            lines.append("")
+    except Exception as _e:
+        # 附加模块任何异常都不得影响主复盘邮件
+        lines.append("【九、资金潜伏·优质股精选】")
+        lines.append(f"  本次生成失败（不影响其它部分）：{_e}")
+        lines.append("")
+        print(f"[quality_pick] 并入失败，已跳过: {_e}")
 
 report = "\n".join(lines)
 
