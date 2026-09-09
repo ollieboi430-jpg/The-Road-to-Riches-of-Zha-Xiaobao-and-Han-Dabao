@@ -1,16 +1,8 @@
 {
-  "updated_at": "2026-09-09T11:39:04.844469+08:00",
+  "updated_at": "2026-09-09T15:34:41.509453+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 14,
+  "count": 13,
   "data": [
-    {
-      "code": "605255",
-      "name": "天普股份",
-      "market": "SH",
-      "start": "2026-08-27",
-      "end": "2026-09-09",
-      "days_left": 0
-    },
     {
       "code": "688496",
       "name": "*ST清越",

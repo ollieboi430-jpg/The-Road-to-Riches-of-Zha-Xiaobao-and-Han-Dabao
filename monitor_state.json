@@ -23,6 +23,14 @@
     "last_dev": 47.4,
     "last_win": 30
   },
+  "000978": {
+    "name": "桂林旅游",
+    "enter_date": "20260908",
+    "left_days": 10,
+    "index_name": "深证成指",
+    "last_dev": 36.91,
+    "last_win": 30
+  },
   "002403": {
     "name": "爱仕达",
     "enter_date": "20260904",
@@ -53,14 +61,6 @@
     "left_days": 10,
     "index_name": "上证指数",
     "last_dev": 33.95,
-    "last_win": 30
-  },
-  "000978": {
-    "name": "桂林旅游",
-    "enter_date": "20260908",
-    "left_days": 10,
-    "index_name": "深证成指",
-    "last_dev": 36.91,
     "last_win": 30
   },
   "002579": {
@@ -146,7 +146,7 @@
   "002708": {
     "name": "光洋股份",
     "enter_date": "20260904",
-    "left_days": 4,
+    "left_days": 3,
     "index_name": "深证成指",
     "last_dev": 70.34,
     "last_win": 30
@@ -170,7 +170,7 @@
   "605398": {
     "name": "新炬网络",
     "enter_date": "20260904",
-    "left_days": 8,
+    "left_days": 7,
     "index_name": "上证指数",
     "last_dev": 29.13,
     "last_win": 30
@@ -186,7 +186,7 @@
   "000892": {
     "name": "欢瑞世纪",
     "enter_date": "20260904",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "深证成指",
     "last_dev": 73.49,
     "last_win": 30
@@ -194,7 +194,7 @@
   "002059": {
     "name": "云南旅游",
     "enter_date": "20260904",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "深证成指",
     "last_dev": 43.94,
     "last_win": 30
@@ -202,7 +202,7 @@
   "600657": {
     "name": "信达地产",
     "enter_date": "20260904",
-    "left_days": 2,
+    "left_days": 1,
     "index_name": "上证指数",
     "last_dev": 33.25,
     "last_win": 30
@@ -210,7 +210,7 @@
   "603339": {
     "name": "四方科技",
     "enter_date": "20260907",
-    "left_days": 2,
+    "left_days": 1,
     "index_name": "上证指数",
     "last_dev": -14.03,
     "last_win": 3
@@ -218,7 +218,7 @@
   "002742": {
     "name": "冀衡医药",
     "enter_date": "20260907",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "深证成指",
     "last_dev": 34.96,
     "last_win": 30
@@ -226,7 +226,7 @@
   "000017": {
     "name": "深中华A",
     "enter_date": "20260907",
-    "left_days": 8,
+    "left_days": 7,
     "index_name": "深证成指",
     "last_dev": 56.02,
     "last_win": 30
@@ -234,7 +234,7 @@
   "003032": {
     "name": "传智教育",
     "enter_date": "20260908",
-    "left_days": 8,
+    "left_days": 7,
     "index_name": "深证成指",
     "last_dev": 49.32,
     "last_win": 30
