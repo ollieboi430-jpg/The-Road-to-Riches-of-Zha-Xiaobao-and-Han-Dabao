@@ -1,4 +1,28 @@
 {
+  "002470": {
+    "name": "金正大",
+    "enter_date": "20260908",
+    "left_days": 10,
+    "index_name": "深证成指",
+    "last_dev": 34.59,
+    "last_win": 30
+  },
+  "600865": {
+    "name": "百大集团",
+    "enter_date": "20260907",
+    "left_days": 10,
+    "index_name": "上证指数",
+    "last_dev": 65.05,
+    "last_win": 30
+  },
+  "000798": {
+    "name": "中水渔业",
+    "enter_date": "20260907",
+    "left_days": 10,
+    "index_name": "深证成指",
+    "last_dev": 47.4,
+    "last_win": 30
+  },
   "002403": {
     "name": "爱仕达",
     "enter_date": "20260904",
@@ -13,14 +37,6 @@
     "left_days": 10,
     "index_name": "深证成指",
     "last_dev": 57.58,
-    "last_win": 30
-  },
-  "600865": {
-    "name": "百大集团",
-    "enter_date": "20260907",
-    "left_days": 10,
-    "index_name": "上证指数",
-    "last_dev": 65.05,
     "last_win": 30
   },
   "600108": {
@@ -71,14 +87,6 @@
     "last_dev": 76.12,
     "last_win": 30
   },
-  "002470": {
-    "name": "金正大",
-    "enter_date": "20260908",
-    "left_days": 10,
-    "index_name": "深证成指",
-    "last_dev": 34.59,
-    "last_win": 30
-  },
   "002980": {
     "name": "华盛昌",
     "enter_date": "20260907",
@@ -127,14 +135,6 @@
     "last_dev": 109.32,
     "last_win": 30
   },
-  "000798": {
-    "name": "中水渔业",
-    "enter_date": "20260907",
-    "left_days": 10,
-    "index_name": "深证成指",
-    "last_dev": 47.4,
-    "last_win": 30
-  },
   "002564": {
     "name": "天沃科技",
     "enter_date": "20260907",
@@ -146,7 +146,7 @@
   "002708": {
     "name": "光洋股份",
     "enter_date": "20260904",
-    "left_days": 5,
+    "left_days": 4,
     "index_name": "深证成指",
     "last_dev": 70.34,
     "last_win": 30
@@ -170,7 +170,7 @@
   "605398": {
     "name": "新炬网络",
     "enter_date": "20260904",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "上证指数",
     "last_dev": 29.13,
     "last_win": 30
@@ -186,7 +186,7 @@
   "000892": {
     "name": "欢瑞世纪",
     "enter_date": "20260904",
-    "left_days": 4,
+    "left_days": 3,
     "index_name": "深证成指",
     "last_dev": 73.49,
     "last_win": 30
@@ -194,7 +194,7 @@
   "002059": {
     "name": "云南旅游",
     "enter_date": "20260904",
-    "left_days": 4,
+    "left_days": 3,
     "index_name": "深证成指",
     "last_dev": 43.94,
     "last_win": 30
@@ -202,7 +202,7 @@
   "600657": {
     "name": "信达地产",
     "enter_date": "20260904",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "上证指数",
     "last_dev": 33.25,
     "last_win": 30
@@ -210,7 +210,7 @@
   "603339": {
     "name": "四方科技",
     "enter_date": "20260907",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "上证指数",
     "last_dev": -14.03,
     "last_win": 3
@@ -218,7 +218,7 @@
   "002742": {
     "name": "冀衡医药",
     "enter_date": "20260907",
-    "left_days": 4,
+    "left_days": 3,
     "index_name": "深证成指",
     "last_dev": 34.96,
     "last_win": 30
@@ -226,7 +226,7 @@
   "000017": {
     "name": "深中华A",
     "enter_date": "20260907",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "深证成指",
     "last_dev": 56.02,
     "last_win": 30
@@ -234,7 +234,7 @@
   "003032": {
     "name": "传智教育",
     "enter_date": "20260908",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "深证成指",
     "last_dev": 49.32,
     "last_win": 30
@@ -253,6 +253,38 @@
     "left_days": 10,
     "index_name": "深证成指",
     "last_dev": 42.98,
+    "last_win": 30
+  },
+  "603991": {
+    "name": "领先股份",
+    "enter_date": "20260909",
+    "left_days": 10,
+    "index_name": "上证指数",
+    "last_dev": 44.83,
+    "last_win": 30
+  },
+  "600371": {
+    "name": "万向德农",
+    "enter_date": "20260909",
+    "left_days": 10,
+    "index_name": "上证指数",
+    "last_dev": 142.85,
+    "last_win": 30
+  },
+  "002856": {
+    "name": "*ST美芝",
+    "enter_date": "20260909",
+    "left_days": 10,
+    "index_name": "深证成指",
+    "last_dev": 58.21,
+    "last_win": 30
+  },
+  "603123": {
+    "name": "翠微股份",
+    "enter_date": "20260909",
+    "left_days": 10,
+    "index_name": "上证指数",
+    "last_dev": 32.65,
     "last_win": 30
   }
 }
