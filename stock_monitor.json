@@ -1,39 +1,15 @@
 {
-  "updated_at": "2026-09-09T19:13:40.694580+08:00",
+  "updated_at": "2026-09-10T15:42:43.098936+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 13,
+  "count": 11,
   "data": [
-    {
-      "code": "688496",
-      "name": "*ST清越",
-      "market": "SH",
-      "start": "2026-08-28",
-      "end": "2026-09-10",
-      "days_left": 1
-    },
-    {
-      "code": "301520",
-      "name": "万邦医药",
-      "market": "SZ",
-      "start": "2026-08-28",
-      "end": "2026-09-10",
-      "days_left": 1
-    },
-    {
-      "code": "300862",
-      "name": "蓝盾光电",
-      "market": "SZ",
-      "start": "2026-08-28",
-      "end": "2026-09-10",
-      "days_left": 1
-    },
     {
       "code": "920575",
       "name": "*ST康乐",
       "market": "BJ",
       "start": "2026-09-07",
       "end": "2026-09-11",
-      "days_left": 2
+      "days_left": 1
     },
     {
       "code": "920090",
@@ -41,7 +17,7 @@
       "market": "BJ",
       "start": "2026-09-07",
       "end": "2026-09-11",
-      "days_left": 2
+      "days_left": 1
     },
     {
       "code": "920023",
@@ -49,7 +25,7 @@
       "market": "BJ",
       "start": "2026-09-07",
       "end": "2026-09-11",
-      "days_left": 2
+      "days_left": 1
     },
     {
       "code": "605179",
@@ -57,7 +33,7 @@
       "market": "SH",
       "start": "2026-09-02",
       "end": "2026-09-15",
-      "days_left": 6
+      "days_left": 5
     },
     {
       "code": "603221",
@@ -65,7 +41,7 @@
       "market": "SH",
       "start": "2026-09-03",
       "end": "2026-09-16",
-      "days_left": 7
+      "days_left": 6
     },
     {
       "code": "000017",
@@ -73,7 +49,7 @@
       "market": "SZ",
       "start": "2026-09-03",
       "end": "2026-09-16",
-      "days_left": 7
+      "days_left": 6
     },
     {
       "code": "688121",
@@ -81,7 +57,7 @@
       "market": "SH",
       "start": "2026-09-04",
       "end": "2026-09-17",
-      "days_left": 8
+      "days_left": 7
     },
     {
       "code": "301234",
@@ -89,7 +65,7 @@
       "market": "SZ",
       "start": "2026-09-08",
       "end": "2026-09-21",
-      "days_left": 12
+      "days_left": 11
     },
     {
       "code": "300684",
@@ -97,7 +73,7 @@
       "market": "SZ",
       "start": "2026-09-08",
       "end": "2026-09-21",
-      "days_left": 12
+      "days_left": 11
     },
     {
       "code": "002827",
@@ -105,7 +81,15 @@
       "market": "SZ",
       "start": "2026-09-08",
       "end": "2026-09-21",
-      "days_left": 12
+      "days_left": 11
+    },
+    {
+      "code": "605255",
+      "name": "天普股份",
+      "market": "SH",
+      "start": "2026-09-10",
+      "end": "2026-09-23",
+      "days_left": 13
     }
   ]
 }
