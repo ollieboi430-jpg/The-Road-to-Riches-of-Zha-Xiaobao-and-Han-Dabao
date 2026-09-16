@@ -1,31 +1,15 @@
 {
-  "updated_at": "2026-09-15T19:14:09.564869+08:00",
+  "updated_at": "2026-09-16T15:42:10.002966+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 11,
+  "count": 9,
   "data": [
-    {
-      "code": "603221",
-      "name": "爱丽家居",
-      "market": "SH",
-      "start": "2026-09-03",
-      "end": "2026-09-16",
-      "days_left": 1
-    },
-    {
-      "code": "000017",
-      "name": "深中华A",
-      "market": "SZ",
-      "start": "2026-09-03",
-      "end": "2026-09-16",
-      "days_left": 1
-    },
     {
       "code": "688121",
       "name": "*ST卓然",
       "market": "SH",
       "start": "2026-09-04",
       "end": "2026-09-17",
-      "days_left": 2
+      "days_left": 1
     },
     {
       "code": "920575",
@@ -33,7 +17,7 @@
       "market": "BJ",
       "start": "2026-09-14",
       "end": "2026-09-18",
-      "days_left": 3
+      "days_left": 2
     },
     {
       "code": "920090",
@@ -41,7 +25,7 @@
       "market": "BJ",
       "start": "2026-09-14",
       "end": "2026-09-18",
-      "days_left": 3
+      "days_left": 2
     },
     {
       "code": "920023",
@@ -49,7 +33,7 @@
       "market": "BJ",
       "start": "2026-09-14",
       "end": "2026-09-18",
-      "days_left": 3
+      "days_left": 2
     },
     {
       "code": "301234",
@@ -57,7 +41,7 @@
       "market": "SZ",
       "start": "2026-09-08",
       "end": "2026-09-21",
-      "days_left": 6
+      "days_left": 5
     },
     {
       "code": "300684",
@@ -65,7 +49,7 @@
       "market": "SZ",
       "start": "2026-09-08",
       "end": "2026-09-21",
-      "days_left": 6
+      "days_left": 5
     },
     {
       "code": "002827",
@@ -73,7 +57,7 @@
       "market": "SZ",
       "start": "2026-09-08",
       "end": "2026-09-21",
-      "days_left": 6
+      "days_left": 5
     },
     {
       "code": "605255",
@@ -81,7 +65,7 @@
       "market": "SH",
       "start": "2026-09-10",
       "end": "2026-09-23",
-      "days_left": 8
+      "days_left": 7
     },
     {
       "code": "605577",
@@ -89,7 +73,7 @@
       "market": "SH",
       "start": "2026-09-14",
       "end": "2026-09-28",
-      "days_left": 13
+      "days_left": 12
     }
   ]
 }
