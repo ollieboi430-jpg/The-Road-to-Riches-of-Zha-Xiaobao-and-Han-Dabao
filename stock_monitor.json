@@ -1,39 +1,15 @@
 {
-  "updated_at": "2026-09-17T19:13:28.048361+08:00",
+  "updated_at": "2026-09-18T15:40:30.228339+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 8,
+  "count": 6,
   "data": [
-    {
-      "code": "920575",
-      "name": "*ST康乐",
-      "market": "BJ",
-      "start": "2026-09-14",
-      "end": "2026-09-18",
-      "days_left": 1
-    },
-    {
-      "code": "920090",
-      "name": "*ST同辉",
-      "market": "BJ",
-      "start": "2026-09-14",
-      "end": "2026-09-18",
-      "days_left": 1
-    },
-    {
-      "code": "920023",
-      "name": "*ST田野",
-      "market": "BJ",
-      "start": "2026-09-14",
-      "end": "2026-09-18",
-      "days_left": 1
-    },
     {
       "code": "301234",
       "name": "五洲医疗",
       "market": "SZ",
       "start": "2026-09-08",
       "end": "2026-09-21",
-      "days_left": 4
+      "days_left": 3
     },
     {
       "code": "300684",
@@ -41,7 +17,7 @@
       "market": "SZ",
       "start": "2026-09-08",
       "end": "2026-09-21",
-      "days_left": 4
+      "days_left": 3
     },
     {
       "code": "002827",
@@ -49,7 +25,7 @@
       "market": "SZ",
       "start": "2026-09-08",
       "end": "2026-09-21",
-      "days_left": 4
+      "days_left": 3
     },
     {
       "code": "605255",
@@ -57,7 +33,7 @@
       "market": "SH",
       "start": "2026-09-10",
       "end": "2026-09-23",
-      "days_left": 6
+      "days_left": 5
     },
     {
       "code": "605577",
@@ -65,7 +41,15 @@
       "market": "SH",
       "start": "2026-09-14",
       "end": "2026-09-28",
-      "days_left": 11
+      "days_left": 10
+    },
+    {
+      "code": "688121",
+      "name": "*ST卓然",
+      "market": "SH",
+      "start": "2026-09-18",
+      "end": "2026-10-09",
+      "days_left": 21
     }
   ]
 }
