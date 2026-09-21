@@ -1,39 +1,15 @@
 {
-  "updated_at": "2026-09-18T19:12:49.567786+08:00",
+  "updated_at": "2026-09-21T15:43:07.563371+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
   "count": 6,
   "data": [
-    {
-      "code": "301234",
-      "name": "五洲医疗",
-      "market": "SZ",
-      "start": "2026-09-08",
-      "end": "2026-09-21",
-      "days_left": 3
-    },
-    {
-      "code": "300684",
-      "name": "中石科技",
-      "market": "SZ",
-      "start": "2026-09-08",
-      "end": "2026-09-21",
-      "days_left": 3
-    },
-    {
-      "code": "002827",
-      "name": "高争民爆",
-      "market": "SZ",
-      "start": "2026-09-08",
-      "end": "2026-09-21",
-      "days_left": 3
-    },
     {
       "code": "605255",
       "name": "天普股份",
       "market": "SH",
       "start": "2026-09-10",
       "end": "2026-09-23",
-      "days_left": 5
+      "days_left": 2
     },
     {
       "code": "605577",
@@ -41,7 +17,31 @@
       "market": "SH",
       "start": "2026-09-14",
       "end": "2026-09-28",
-      "days_left": 10
+      "days_left": 7
+    },
+    {
+      "code": "920575",
+      "name": "*ST康乐",
+      "market": "BJ",
+      "start": "2026-09-21",
+      "end": "2026-09-30",
+      "days_left": 9
+    },
+    {
+      "code": "920090",
+      "name": "*ST同辉",
+      "market": "BJ",
+      "start": "2026-09-21",
+      "end": "2026-09-30",
+      "days_left": 9
+    },
+    {
+      "code": "920023",
+      "name": "*ST田野",
+      "market": "BJ",
+      "start": "2026-09-21",
+      "end": "2026-09-30",
+      "days_left": 9
     },
     {
       "code": "688121",
@@ -49,7 +49,7 @@
       "market": "SH",
       "start": "2026-09-18",
       "end": "2026-10-09",
-      "days_left": 21
+      "days_left": 18
     }
   ]
 }
