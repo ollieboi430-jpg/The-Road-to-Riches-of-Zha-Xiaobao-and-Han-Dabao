@@ -1,6 +1,63 @@
 {
-  "updated_at": "2026-09-28T15:44:13.508764+08:00",
+  "updated_at": "2026-09-28T19:13:55.739503+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 0,
-  "data": []
+  "count": 7,
+  "data": [
+    {
+      "code": "920575",
+      "name": "*ST康乐",
+      "market": "BJ",
+      "start": "2026-09-21",
+      "end": "2026-09-30",
+      "days_left": 2
+    },
+    {
+      "code": "920090",
+      "name": "*ST同辉",
+      "market": "BJ",
+      "start": "2026-09-21",
+      "end": "2026-09-30",
+      "days_left": 2
+    },
+    {
+      "code": "920023",
+      "name": "*ST田野",
+      "market": "BJ",
+      "start": "2026-09-21",
+      "end": "2026-09-30",
+      "days_left": 2
+    },
+    {
+      "code": "688121",
+      "name": "*ST卓然",
+      "market": "SH",
+      "start": "2026-09-22",
+      "end": "2026-10-13",
+      "days_left": 15
+    },
+    {
+      "code": "301234",
+      "name": "五洲医疗",
+      "market": "SZ",
+      "start": "2026-09-23",
+      "end": "2026-10-14",
+      "days_left": 16
+    },
+    {
+      "code": "000993",
+      "name": "闽东电力",
+      "market": "SZ",
+      "start": "2026-09-23",
+      "end": "2026-10-14",
+      "days_left": 16
+    },
+    {
+      "code": "605255",
+      "name": "天普股份",
+      "market": "SH",
+      "start": "2026-09-24",
+      "end": "2026-10-15",
+      "days_left": 17
+    }
+  ]
 }
