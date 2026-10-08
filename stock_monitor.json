@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-10-08T22:47:22.225455+08:00",
+  "updated_at": "2026-10-09T01:46:46.720276+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 8,
+  "count": 9,
   "data": [
     {
       "code": "920575",
@@ -9,7 +9,7 @@
       "market": "BJ",
       "start": "2026-10-08",
       "end": "2026-10-09",
-      "days_left": 1
+      "days_left": 0
     },
     {
       "code": "920090",
@@ -17,7 +17,7 @@
       "market": "BJ",
       "start": "2026-10-08",
       "end": "2026-10-09",
-      "days_left": 1
+      "days_left": 0
     },
     {
       "code": "920023",
@@ -25,7 +25,7 @@
       "market": "BJ",
       "start": "2026-10-08",
       "end": "2026-10-09",
-      "days_left": 1
+      "days_left": 0
     },
     {
       "code": "688121",
@@ -33,7 +33,7 @@
       "market": "SH",
       "start": "2026-09-22",
       "end": "2026-10-13",
-      "days_left": 5
+      "days_left": 4
     },
     {
       "code": "301234",
@@ -41,7 +41,7 @@
       "market": "SZ",
       "start": "2026-09-23",
       "end": "2026-10-14",
-      "days_left": 6
+      "days_left": 5
     },
     {
       "code": "000993",
@@ -49,7 +49,7 @@
       "market": "SZ",
       "start": "2026-09-23",
       "end": "2026-10-14",
-      "days_left": 6
+      "days_left": 5
     },
     {
       "code": "605255",
@@ -57,7 +57,15 @@
       "market": "SH",
       "start": "2026-09-24",
       "end": "2026-10-15",
-      "days_left": 7
+      "days_left": 6
+    },
+    {
+      "code": "301190",
+      "name": "善水科技",
+      "market": "SZ",
+      "start": "2026-10-09",
+      "end": "2026-10-22",
+      "days_left": 13
     },
     {
       "code": "301139",
@@ -65,7 +73,7 @@
       "market": "SZ",
       "start": "2026-09-30",
       "end": "2026-10-27",
-      "days_left": 19
+      "days_left": 18
     }
   ]
 }
