@@ -1,39 +1,15 @@
 {
-  "updated_at": "2026-10-15T23:31:45.583349+08:00",
+  "updated_at": "2026-10-16T20:38:47.191994+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 8,
+  "count": 7,
   "data": [
-    {
-      "code": "920575",
-      "name": "*ST康乐",
-      "market": "BJ",
-      "start": "2026-10-12",
-      "end": "2026-10-16",
-      "days_left": 1
-    },
-    {
-      "code": "920090",
-      "name": "*ST同辉",
-      "market": "BJ",
-      "start": "2026-10-12",
-      "end": "2026-10-16",
-      "days_left": 1
-    },
-    {
-      "code": "920023",
-      "name": "*ST田野",
-      "market": "BJ",
-      "start": "2026-10-12",
-      "end": "2026-10-16",
-      "days_left": 1
-    },
     {
       "code": "301190",
       "name": "善水科技",
       "market": "SZ",
       "start": "2026-10-09",
       "end": "2026-10-22",
-      "days_left": 7
+      "days_left": 6
     },
     {
       "code": "688121",
@@ -41,7 +17,7 @@
       "market": "SH",
       "start": "2026-10-14",
       "end": "2026-10-27",
-      "days_left": 12
+      "days_left": 11
     },
     {
       "code": "605577",
@@ -49,7 +25,7 @@
       "market": "SH",
       "start": "2026-10-14",
       "end": "2026-10-27",
-      "days_left": 12
+      "days_left": 11
     },
     {
       "code": "301139",
@@ -57,7 +33,7 @@
       "market": "SZ",
       "start": "2026-09-30",
       "end": "2026-10-27",
-      "days_left": 12
+      "days_left": 11
     },
     {
       "code": "301234",
@@ -65,6 +41,22 @@
       "market": "SZ",
       "start": "2026-10-15",
       "end": "2026-10-28",
+      "days_left": 12
+    },
+    {
+      "code": "605255",
+      "name": "天普股份",
+      "market": "SH",
+      "start": "2026-10-16",
+      "end": "2026-10-29",
+      "days_left": 13
+    },
+    {
+      "code": "600825",
+      "name": "新华传媒",
+      "market": "SH",
+      "start": "2026-10-16",
+      "end": "2026-10-29",
       "days_left": 13
     }
   ]
