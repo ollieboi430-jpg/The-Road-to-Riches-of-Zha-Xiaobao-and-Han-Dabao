@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-10-19T22:53:12.223477+08:00",
+  "updated_at": "2026-10-20T01:22:27.639437+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 9,
+  "count": 10,
   "data": [
     {
       "code": "301190",
@@ -9,7 +9,7 @@
       "market": "SZ",
       "start": "2026-10-09",
       "end": "2026-10-22",
-      "days_left": 3
+      "days_left": 2
     },
     {
       "code": "920575",
@@ -17,7 +17,7 @@
       "market": "BJ",
       "start": "2026-10-19",
       "end": "2026-10-23",
-      "days_left": 4
+      "days_left": 3
     },
     {
       "code": "920090",
@@ -25,7 +25,7 @@
       "market": "BJ",
       "start": "2026-10-19",
       "end": "2026-10-23",
-      "days_left": 4
+      "days_left": 3
     },
     {
       "code": "920023",
@@ -33,7 +33,7 @@
       "market": "BJ",
       "start": "2026-10-19",
       "end": "2026-10-23",
-      "days_left": 4
+      "days_left": 3
     },
     {
       "code": "605577",
@@ -41,7 +41,7 @@
       "market": "SH",
       "start": "2026-10-14",
       "end": "2026-10-27",
-      "days_left": 8
+      "days_left": 7
     },
     {
       "code": "301139",
@@ -49,7 +49,7 @@
       "market": "SZ",
       "start": "2026-09-30",
       "end": "2026-10-27",
-      "days_left": 8
+      "days_left": 7
     },
     {
       "code": "301234",
@@ -57,7 +57,7 @@
       "market": "SZ",
       "start": "2026-10-15",
       "end": "2026-10-28",
-      "days_left": 9
+      "days_left": 8
     },
     {
       "code": "605255",
@@ -65,7 +65,7 @@
       "market": "SH",
       "start": "2026-10-16",
       "end": "2026-10-29",
-      "days_left": 10
+      "days_left": 9
     },
     {
       "code": "600825",
@@ -73,7 +73,15 @@
       "market": "SH",
       "start": "2026-10-16",
       "end": "2026-10-29",
-      "days_left": 10
+      "days_left": 9
+    },
+    {
+      "code": "688121",
+      "name": "*ST卓然",
+      "market": "SH",
+      "start": "2026-10-20",
+      "end": "2026-11-02",
+      "days_left": 13
     }
   ]
 }
