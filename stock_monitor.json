@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-20T23:34:52.054079+08:00",
+  "updated_at": "2026-10-21T21:04:49.929917+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
   "count": 10,
   "data": [
@@ -9,7 +9,7 @@
       "market": "SZ",
       "start": "2026-10-09",
       "end": "2026-10-22",
-      "days_left": 2
+      "days_left": 1
     },
     {
       "code": "920575",
@@ -17,7 +17,7 @@
       "market": "BJ",
       "start": "2026-10-19",
       "end": "2026-10-23",
-      "days_left": 3
+      "days_left": 2
     },
     {
       "code": "920090",
@@ -25,7 +25,7 @@
       "market": "BJ",
       "start": "2026-10-19",
       "end": "2026-10-23",
-      "days_left": 3
+      "days_left": 2
     },
     {
       "code": "920023",
@@ -33,7 +33,7 @@
       "market": "BJ",
       "start": "2026-10-19",
       "end": "2026-10-23",
-      "days_left": 3
+      "days_left": 2
     },
     {
       "code": "605577",
@@ -41,7 +41,7 @@
       "market": "SH",
       "start": "2026-10-14",
       "end": "2026-10-27",
-      "days_left": 7
+      "days_left": 6
     },
     {
       "code": "301139",
@@ -49,7 +49,7 @@
       "market": "SZ",
       "start": "2026-09-30",
       "end": "2026-10-27",
-      "days_left": 7
+      "days_left": 6
     },
     {
       "code": "301234",
@@ -57,7 +57,7 @@
       "market": "SZ",
       "start": "2026-10-15",
       "end": "2026-10-28",
-      "days_left": 8
+      "days_left": 7
     },
     {
       "code": "605255",
@@ -65,7 +65,7 @@
       "market": "SH",
       "start": "2026-10-16",
       "end": "2026-10-29",
-      "days_left": 9
+      "days_left": 8
     },
     {
       "code": "600825",
@@ -73,7 +73,7 @@
       "market": "SH",
       "start": "2026-10-16",
       "end": "2026-10-29",
-      "days_left": 9
+      "days_left": 8
     },
     {
       "code": "688121",
@@ -81,7 +81,7 @@
       "market": "SH",
       "start": "2026-10-20",
       "end": "2026-11-02",
-      "days_left": 13
+      "days_left": 12
     }
   ]
 }
