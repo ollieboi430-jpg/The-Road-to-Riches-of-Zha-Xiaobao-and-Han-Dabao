@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-10-23T23:40:12.079615+08:00",
+  "updated_at": "2026-10-26T22:28:53.325510+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 7,
+  "count": 11,
   "data": [
     {
       "code": "605577",
@@ -9,7 +9,7 @@
       "market": "SH",
       "start": "2026-10-14",
       "end": "2026-10-27",
-      "days_left": 4
+      "days_left": 1
     },
     {
       "code": "301139",
@@ -17,7 +17,7 @@
       "market": "SZ",
       "start": "2026-09-30",
       "end": "2026-10-27",
-      "days_left": 4
+      "days_left": 1
     },
     {
       "code": "301234",
@@ -25,7 +25,7 @@
       "market": "SZ",
       "start": "2026-10-15",
       "end": "2026-10-28",
-      "days_left": 5
+      "days_left": 2
     },
     {
       "code": "605255",
@@ -33,7 +33,7 @@
       "market": "SH",
       "start": "2026-10-16",
       "end": "2026-10-29",
-      "days_left": 6
+      "days_left": 3
     },
     {
       "code": "600825",
@@ -41,7 +41,31 @@
       "market": "SH",
       "start": "2026-10-16",
       "end": "2026-10-29",
-      "days_left": 6
+      "days_left": 3
+    },
+    {
+      "code": "920575",
+      "name": "*ST康乐",
+      "market": "BJ",
+      "start": "2026-10-26",
+      "end": "2026-10-30",
+      "days_left": 4
+    },
+    {
+      "code": "920090",
+      "name": "*ST同辉",
+      "market": "BJ",
+      "start": "2026-10-26",
+      "end": "2026-10-30",
+      "days_left": 4
+    },
+    {
+      "code": "920023",
+      "name": "*ST田野",
+      "market": "BJ",
+      "start": "2026-10-26",
+      "end": "2026-10-30",
+      "days_left": 4
     },
     {
       "code": "688121",
@@ -49,7 +73,15 @@
       "market": "SH",
       "start": "2026-10-20",
       "end": "2026-11-02",
-      "days_left": 10
+      "days_left": 7
+    },
+    {
+      "code": "301313",
+      "name": "凡拓数创",
+      "market": "SZ",
+      "start": "2026-10-26",
+      "end": "2026-11-06",
+      "days_left": 11
     },
     {
       "code": "002731",
@@ -57,7 +89,7 @@
       "market": "SZ",
       "start": "2026-10-23",
       "end": "2026-11-12",
-      "days_left": 20
+      "days_left": 17
     }
   ]
 }
