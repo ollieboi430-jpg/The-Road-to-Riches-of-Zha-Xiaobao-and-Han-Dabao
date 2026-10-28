@@ -1,16 +1,8 @@
 {
-  "updated_at": "2026-10-28T00:15:49.587261+08:00",
+  "updated_at": "2026-10-28T22:19:17.727964+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 9,
+  "count": 8,
   "data": [
-    {
-      "code": "301234",
-      "name": "五洲医疗",
-      "market": "SZ",
-      "start": "2026-10-15",
-      "end": "2026-10-28",
-      "days_left": 0
-    },
     {
       "code": "605255",
       "name": "天普股份",
