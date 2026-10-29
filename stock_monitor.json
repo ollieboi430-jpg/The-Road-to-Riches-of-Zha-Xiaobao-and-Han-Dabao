@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-10-29T22:35:07.347204+08:00",
+  "updated_at": "2026-10-30T01:20:35.604456+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 6,
+  "count": 9,
   "data": [
     {
       "code": "920575",
@@ -9,7 +9,7 @@
       "market": "BJ",
       "start": "2026-10-26",
       "end": "2026-10-30",
-      "days_left": 1
+      "days_left": 0
     },
     {
       "code": "920090",
@@ -17,7 +17,7 @@
       "market": "BJ",
       "start": "2026-10-26",
       "end": "2026-10-30",
-      "days_left": 1
+      "days_left": 0
     },
     {
       "code": "920023",
@@ -25,7 +25,7 @@
       "market": "BJ",
       "start": "2026-10-26",
       "end": "2026-10-30",
-      "days_left": 1
+      "days_left": 0
     },
     {
       "code": "688121",
@@ -33,7 +33,7 @@
       "market": "SH",
       "start": "2026-10-20",
       "end": "2026-11-02",
-      "days_left": 4
+      "days_left": 3
     },
     {
       "code": "301313",
@@ -41,7 +41,31 @@
       "market": "SZ",
       "start": "2026-10-26",
       "end": "2026-11-06",
-      "days_left": 8
+      "days_left": 7
+    },
+    {
+      "code": "605255",
+      "name": "天普股份",
+      "market": "SH",
+      "start": "2026-10-30",
+      "end": "2026-11-12",
+      "days_left": 13
+    },
+    {
+      "code": "603843",
+      "name": "*ST正平",
+      "market": "SH",
+      "start": "2026-10-30",
+      "end": "2026-11-12",
+      "days_left": 13
+    },
+    {
+      "code": "600825",
+      "name": "新华传媒",
+      "market": "SH",
+      "start": "2026-10-30",
+      "end": "2026-11-12",
+      "days_left": 13
     },
     {
       "code": "002731",
@@ -49,7 +73,7 @@
       "market": "SZ",
       "start": "2026-10-23",
       "end": "2026-11-12",
-      "days_left": 14
+      "days_left": 13
     }
   ]
 }
