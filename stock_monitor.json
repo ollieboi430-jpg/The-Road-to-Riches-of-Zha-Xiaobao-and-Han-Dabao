@@ -1,32 +1,8 @@
 {
-  "updated_at": "2026-10-30T01:20:35.604456+08:00",
+  "updated_at": "2026-10-30T22:27:07.338973+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 9,
+  "count": 6,
   "data": [
-    {
-      "code": "920575",
-      "name": "*ST康乐",
-      "market": "BJ",
-      "start": "2026-10-26",
-      "end": "2026-10-30",
-      "days_left": 0
-    },
-    {
-      "code": "920090",
-      "name": "*ST同辉",
-      "market": "BJ",
-      "start": "2026-10-26",
-      "end": "2026-10-30",
-      "days_left": 0
-    },
-    {
-      "code": "920023",
-      "name": "*ST田野",
-      "market": "BJ",
-      "start": "2026-10-26",
-      "end": "2026-10-30",
-      "days_left": 0
-    },
     {
       "code": "688121",
       "name": "*ST卓然",
