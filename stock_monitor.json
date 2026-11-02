@@ -1,15 +1,31 @@
 {
-  "updated_at": "2026-10-31T00:57:36.625635+08:00",
+  "updated_at": "2026-11-03T01:21:31.513324+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 6,
+  "count": 9,
   "data": [
     {
-      "code": "688121",
-      "name": "*ST卓然",
-      "market": "SH",
-      "start": "2026-10-20",
-      "end": "2026-11-02",
-      "days_left": 2
+      "code": "920575",
+      "name": "*ST康乐",
+      "market": "BJ",
+      "start": "2026-11-02",
+      "end": "2026-11-06",
+      "days_left": 3
+    },
+    {
+      "code": "920090",
+      "name": "*ST同辉",
+      "market": "BJ",
+      "start": "2026-11-02",
+      "end": "2026-11-06",
+      "days_left": 3
+    },
+    {
+      "code": "920023",
+      "name": "*ST田野",
+      "market": "BJ",
+      "start": "2026-11-02",
+      "end": "2026-11-06",
+      "days_left": 3
     },
     {
       "code": "301313",
@@ -17,7 +33,7 @@
       "market": "SZ",
       "start": "2026-10-26",
       "end": "2026-11-06",
-      "days_left": 6
+      "days_left": 3
     },
     {
       "code": "605255",
@@ -25,7 +41,7 @@
       "market": "SH",
       "start": "2026-10-30",
       "end": "2026-11-12",
-      "days_left": 12
+      "days_left": 9
     },
     {
       "code": "603843",
@@ -33,7 +49,7 @@
       "market": "SH",
       "start": "2026-10-30",
       "end": "2026-11-12",
-      "days_left": 12
+      "days_left": 9
     },
     {
       "code": "600825",
@@ -41,7 +57,7 @@
       "market": "SH",
       "start": "2026-10-30",
       "end": "2026-11-12",
-      "days_left": 12
+      "days_left": 9
     },
     {
       "code": "002731",
@@ -49,7 +65,15 @@
       "market": "SZ",
       "start": "2026-10-23",
       "end": "2026-11-12",
-      "days_left": 12
+      "days_left": 9
+    },
+    {
+      "code": "002724",
+      "name": "海洋王",
+      "market": "SZ",
+      "start": "2026-11-02",
+      "end": "2026-11-13",
+      "days_left": 10
     }
   ]
 }
