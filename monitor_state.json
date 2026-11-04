@@ -34,7 +34,7 @@
   "002088": {
     "name": "鲁阳节能",
     "enter_date": "20261103",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "深证成指",
     "last_dev": 31.08,
     "last_win": 3
@@ -63,14 +63,6 @@
     "last_dev": 22.83,
     "last_win": 3
   },
-  "002388": {
-    "name": "新亚制程",
-    "enter_date": "20260930",
-    "left_days": 1,
-    "index_name": "深证成指",
-    "last_dev": -36.3,
-    "last_win": 10
-  },
   "002058": {
     "name": "紫竹高科",
     "enter_date": "20261103",
@@ -82,7 +74,7 @@
   "002275": {
     "name": "桂林三金",
     "enter_date": "20261030",
-    "left_days": 7,
+    "left_days": 6,
     "index_name": "深证成指",
     "last_dev": 57.86,
     "last_win": 30
@@ -95,14 +87,6 @@
     "last_dev": 25.83,
     "last_win": 30
   },
-  "605488": {
-    "name": "福莱新材",
-    "enter_date": "20261020",
-    "left_days": 1,
-    "index_name": "上证指数",
-    "last_dev": 64.57,
-    "last_win": 10
-  },
   "605288": {
     "name": "凯迪股份",
     "enter_date": "20261104",
@@ -114,7 +98,7 @@
   "000530": {
     "name": "冰山冷热",
     "enter_date": "20261102",
-    "left_days": 7,
+    "left_days": 6,
     "index_name": "深证成指",
     "last_dev": 103.14,
     "last_win": 30
@@ -146,7 +130,7 @@
   "002636": {
     "name": "金安国纪",
     "enter_date": "20261030",
-    "left_days": 5,
+    "left_days": 4,
     "index_name": "深证成指",
     "last_dev": -8.62,
     "last_win": 3
@@ -162,7 +146,7 @@
   "000995": {
     "name": "皇台酒业",
     "enter_date": "20261103",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "深证成指",
     "last_dev": 68.45,
     "last_win": 30
@@ -170,7 +154,7 @@
   "002086": {
     "name": "东方海洋",
     "enter_date": "20261030",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "深证成指",
     "last_dev": 81.19,
     "last_win": 30
@@ -178,7 +162,7 @@
   "600261": {
     "name": "阳光照明",
     "enter_date": "20261030",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "上证指数",
     "last_dev": 46.2,
     "last_win": 30
@@ -186,7 +170,7 @@
   "002029": {
     "name": "七 匹 狼",
     "enter_date": "20261102",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "深证成指",
     "last_dev": 31.38,
     "last_win": 30
@@ -194,7 +178,7 @@
   "600293": {
     "name": "三峡新材",
     "enter_date": "20261021",
-    "left_days": 5,
+    "left_days": 4,
     "index_name": "上证指数",
     "last_dev": 33.46,
     "last_win": 30
@@ -202,23 +186,15 @@
   "600715": {
     "name": "文投控股",
     "enter_date": "20261029",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "上证指数",
     "last_dev": 57.08,
-    "last_win": 30
-  },
-  "001318": {
-    "name": "阳光乳业",
-    "enter_date": "20261015",
-    "left_days": 1,
-    "index_name": "深证成指",
-    "last_dev": 41.67,
     "last_win": 30
   },
   "000525": {
     "name": "红太阳",
     "enter_date": "20261102",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "深证成指",
     "last_dev": 15.36,
     "last_win": 30
@@ -226,7 +202,7 @@
   "002172": {
     "name": "澳洋健康",
     "enter_date": "20261029",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "深证成指",
     "last_dev": 39.85,
     "last_win": 30
@@ -234,7 +210,7 @@
   "000410": {
     "name": "沈阳机床",
     "enter_date": "20261102",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "深证成指",
     "last_dev": 26.37,
     "last_win": 30
@@ -242,7 +218,7 @@
   "600189": {
     "name": "泉阳泉",
     "enter_date": "20261102",
-    "left_days": 7,
+    "left_days": 6,
     "index_name": "上证指数",
     "last_dev": 15.49,
     "last_win": 30
@@ -250,7 +226,7 @@
   "001216": {
     "name": "华瓷股份",
     "enter_date": "20261023",
-    "left_days": 5,
+    "left_days": 4,
     "index_name": "深证成指",
     "last_dev": 26.38,
     "last_win": 30
@@ -258,7 +234,7 @@
   "000417": {
     "name": "合百集团",
     "enter_date": "20261102",
-    "left_days": 7,
+    "left_days": 6,
     "index_name": "深证成指",
     "last_dev": 21.64,
     "last_win": 10
@@ -266,7 +242,7 @@
   "603587": {
     "name": "地素时尚",
     "enter_date": "20261102",
-    "left_days": 7,
+    "left_days": 6,
     "index_name": "上证指数",
     "last_dev": 18.73,
     "last_win": 3
@@ -274,7 +250,7 @@
   "001219": {
     "name": "青岛食品",
     "enter_date": "20261027",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "深证成指",
     "last_dev": 92.45,
     "last_win": 30
@@ -282,23 +258,15 @@
   "000678": {
     "name": "襄阳轴承",
     "enter_date": "20261026",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "深证成指",
     "last_dev": 140.68,
     "last_win": 30
   },
-  "605333": {
-    "name": "沪光股份",
-    "enter_date": "20261027",
-    "left_days": 1,
-    "index_name": "上证指数",
-    "last_dev": 27.37,
-    "last_win": 10
-  },
   "301218": {
     "name": "华是科技",
     "enter_date": "20261102",
-    "left_days": 7,
+    "left_days": 6,
     "index_name": "创业板指",
     "last_dev": 120.92,
     "last_win": 30
@@ -306,7 +274,7 @@
   "002949": {
     "name": "华阳国际",
     "enter_date": "20261102",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "深证成指",
     "last_dev": 29.78,
     "last_win": 30
@@ -314,7 +282,7 @@
   "603703": {
     "name": "盛洋科技",
     "enter_date": "20261030",
-    "left_days": 7,
+    "left_days": 6,
     "index_name": "上证指数",
     "last_dev": -16.48,
     "last_win": 10
@@ -322,7 +290,7 @@
   "603131": {
     "name": "上海沪工",
     "enter_date": "20261029",
-    "left_days": 7,
+    "left_days": 6,
     "index_name": "上证指数",
     "last_dev": 28.19,
     "last_win": 10
@@ -330,7 +298,7 @@
   "003032": {
     "name": "传智教育",
     "enter_date": "20261030",
-    "left_days": 7,
+    "left_days": 6,
     "index_name": "深证成指",
     "last_dev": 21.92,
     "last_win": 30
@@ -338,7 +306,7 @@
   "688045": {
     "name": "必易微",
     "enter_date": "20261030",
-    "left_days": 5,
+    "left_days": 4,
     "index_name": "科创50",
     "last_dev": 31.31,
     "last_win": 10
@@ -346,7 +314,7 @@
   "605338": {
     "name": "巴比食品",
     "enter_date": "20261030",
-    "left_days": 7,
+    "left_days": 6,
     "index_name": "上证指数",
     "last_dev": 20.63,
     "last_win": 30
@@ -354,7 +322,7 @@
   "002526": {
     "name": "山东矿机",
     "enter_date": "20261029",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "深证成指",
     "last_dev": 24.31,
     "last_win": 30
@@ -362,7 +330,7 @@
   "002708": {
     "name": "光洋股份",
     "enter_date": "20261027",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "深证成指",
     "last_dev": 37.82,
     "last_win": 10
@@ -370,7 +338,7 @@
   "002862": {
     "name": "实丰文化",
     "enter_date": "20261029",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "深证成指",
     "last_dev": -17.17,
     "last_win": 30
@@ -378,7 +346,7 @@
   "601956": {
     "name": "东贝集团",
     "enter_date": "20261029",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "上证指数",
     "last_dev": -18.51,
     "last_win": 3
@@ -386,31 +354,15 @@
   "301079": {
     "name": "邵阳液压",
     "enter_date": "20261029",
-    "left_days": 5,
+    "left_days": 4,
     "index_name": "创业板指",
     "last_dev": 45.12,
     "last_win": 30
   },
-  "600828": {
-    "name": "茂业商业",
-    "enter_date": "20261028",
-    "left_days": 1,
-    "index_name": "上证指数",
-    "last_dev": 13.41,
-    "last_win": 3
-  },
-  "603037": {
-    "name": "凯众股份",
-    "enter_date": "20261028",
-    "left_days": 1,
-    "index_name": "上证指数",
-    "last_dev": 22.77,
-    "last_win": 10
-  },
   "603337": {
     "name": "杰克科技",
     "enter_date": "20261028",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "上证指数",
     "last_dev": 26.43,
     "last_win": 30
@@ -418,7 +370,7 @@
   "001400": {
     "name": "江顺科技",
     "enter_date": "20261028",
-    "left_days": 5,
+    "left_days": 4,
     "index_name": "深证成指",
     "last_dev": 52.35,
     "last_win": 30
@@ -426,7 +378,7 @@
   "603528": {
     "name": "多伦科技",
     "enter_date": "20261023",
-    "left_days": 7,
+    "left_days": 6,
     "index_name": "上证指数",
     "last_dev": 16.38,
     "last_win": 3
@@ -434,33 +386,9 @@
   "603028": {
     "name": "赛福天",
     "enter_date": "20261023",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "上证指数",
     "last_dev": -17.98,
-    "last_win": 3
-  },
-  "600838": {
-    "name": "上海九百",
-    "enter_date": "20261022",
-    "left_days": 1,
-    "index_name": "上证指数",
-    "last_dev": 50.23,
-    "last_win": 10
-  },
-  "002093": {
-    "name": "国脉科技",
-    "enter_date": "20261027",
-    "left_days": 1,
-    "index_name": "深证成指",
-    "last_dev": 12.54,
-    "last_win": 10
-  },
-  "001331": {
-    "name": "胜通能源",
-    "enter_date": "20261027",
-    "left_days": 1,
-    "index_name": "深证成指",
-    "last_dev": -15.44,
     "last_win": 3
   },
   "002724": {
@@ -471,18 +399,10 @@
     "last_dev": 91.09,
     "last_win": 30
   },
-  "301314": {
-    "name": "科瑞思",
-    "enter_date": "20261027",
-    "left_days": 1,
-    "index_name": "创业板指",
-    "last_dev": 21.56,
-    "last_win": 30
-  },
   "603089": {
     "name": "正裕工业",
     "enter_date": "20261022",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "上证指数",
     "last_dev": -12.97,
     "last_win": 3
@@ -490,31 +410,15 @@
   "002535": {
     "name": "林州重机",
     "enter_date": "20261023",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "深证成指",
     "last_dev": 24.56,
     "last_win": 3
   },
-  "000700": {
-    "name": "模塑科技",
-    "enter_date": "20261026",
-    "left_days": 1,
-    "index_name": "深证成指",
-    "last_dev": 38.47,
-    "last_win": 10
-  },
-  "688585": {
-    "name": "上纬新材",
-    "enter_date": "20261026",
-    "left_days": 1,
-    "index_name": "科创50",
-    "last_dev": 57.6,
-    "last_win": 10
-  },
   "300949": {
     "name": "奥雅股份",
     "enter_date": "20261023",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "创业板指",
     "last_dev": 128.53,
     "last_win": 30
@@ -522,7 +426,7 @@
   "603280": {
     "name": "南方路机",
     "enter_date": "20261023",
-    "left_days": 5,
+    "left_days": 4,
     "index_name": "上证指数",
     "last_dev": -6.92,
     "last_win": 3
@@ -538,7 +442,7 @@
   "301313": {
     "name": "凡拓数创",
     "enter_date": "20261020",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "创业板指",
     "last_dev": 132.98,
     "last_win": 30
@@ -546,7 +450,7 @@
   "600825": {
     "name": "新华传媒",
     "enter_date": "20260922",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "上证指数",
     "last_dev": 144.33,
     "last_win": 30
@@ -567,42 +471,10 @@
     "last_dev": -49.48,
     "last_win": 10
   },
-  "301428": {
-    "name": "世纪恒通",
-    "enter_date": "20261026",
-    "left_days": 1,
-    "index_name": "创业板指",
-    "last_dev": 46.18,
-    "last_win": 10
-  },
-  "300976": {
-    "name": "达瑞电子",
-    "enter_date": "20261028",
-    "left_days": 1,
-    "index_name": "创业板指",
-    "last_dev": -6.65,
-    "last_win": 3
-  },
-  "688386": {
-    "name": "泛亚微透",
-    "enter_date": "20261028",
-    "left_days": 1,
-    "index_name": "科创50",
-    "last_dev": 49.48,
-    "last_win": 10
-  },
-  "300147": {
-    "name": "*ST香雪",
-    "enter_date": "20261028",
-    "left_days": 1,
-    "index_name": "创业板指",
-    "last_dev": -9.95,
-    "last_win": 3
-  },
   "002789": {
     "name": "*ST建艺",
     "enter_date": "20261029",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "深证成指",
     "last_dev": -27.22,
     "last_win": 10
@@ -610,7 +482,7 @@
   "301682": {
     "name": "宏明电子",
     "enter_date": "20261029",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "创业板指",
     "last_dev": 20.98,
     "last_win": 3
@@ -618,7 +490,7 @@
   "603843": {
     "name": "*ST正平",
     "enter_date": "20261029",
-    "left_days": 3,
+    "left_days": 2,
     "index_name": "上证指数",
     "last_dev": -25.24,
     "last_win": 3
@@ -626,7 +498,7 @@
   "688818": {
     "name": "电科蓝天",
     "enter_date": "20261030",
-    "left_days": 5,
+    "left_days": 4,
     "index_name": "科创50",
     "last_dev": 28.99,
     "last_win": 10
@@ -642,7 +514,7 @@
   "300739": {
     "name": "明阳电路",
     "enter_date": "20261103",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "创业板指",
     "last_dev": 13.9,
     "last_win": 3
@@ -658,7 +530,7 @@
   "688066": {
     "name": "*ST航图",
     "enter_date": "20261103",
-    "left_days": 9,
+    "left_days": 8,
     "index_name": "科创50",
     "last_dev": 19.17,
     "last_win": 3
