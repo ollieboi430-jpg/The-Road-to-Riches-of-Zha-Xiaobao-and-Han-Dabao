@@ -1,15 +1,39 @@
 {
-  "updated_at": "2026-11-14T02:26:23.786124+08:00",
+  "updated_at": "2026-11-17T01:18:23.872532+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 2,
+  "count": 5,
   "data": [
+    {
+      "code": "920575",
+      "name": "*ST康乐",
+      "market": "BJ",
+      "start": "2026-11-16",
+      "end": "2026-11-20",
+      "days_left": 3
+    },
+    {
+      "code": "920090",
+      "name": "*ST同辉",
+      "market": "BJ",
+      "start": "2026-11-16",
+      "end": "2026-11-20",
+      "days_left": 3
+    },
+    {
+      "code": "920023",
+      "name": "*ST田野",
+      "market": "BJ",
+      "start": "2026-11-16",
+      "end": "2026-11-20",
+      "days_left": 3
+    },
     {
       "code": "605255",
       "name": "天普股份",
       "market": "SH",
       "start": "2026-11-13",
       "end": "2026-11-26",
-      "days_left": 12
+      "days_left": 9
     },
     {
       "code": "600825",
@@ -17,7 +41,7 @@
       "market": "SH",
       "start": "2026-11-13",
       "end": "2026-11-26",
-      "days_left": 12
+      "days_left": 9
     }
   ]
 }
