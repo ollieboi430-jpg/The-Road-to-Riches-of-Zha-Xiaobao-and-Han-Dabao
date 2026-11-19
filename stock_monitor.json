@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-19T03:16:45.894332+08:00",
+  "updated_at": "2026-11-20T00:43:13.576542+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
   "count": 5,
   "data": [
@@ -9,7 +9,7 @@
       "market": "BJ",
       "start": "2026-11-16",
       "end": "2026-11-20",
-      "days_left": 1
+      "days_left": 0
     },
     {
       "code": "920090",
@@ -17,7 +17,7 @@
       "market": "BJ",
       "start": "2026-11-16",
       "end": "2026-11-20",
-      "days_left": 1
+      "days_left": 0
     },
     {
       "code": "920023",
@@ -25,7 +25,7 @@
       "market": "BJ",
       "start": "2026-11-16",
       "end": "2026-11-20",
-      "days_left": 1
+      "days_left": 0
     },
     {
       "code": "600825",
@@ -33,7 +33,7 @@
       "market": "SH",
       "start": "2026-11-13",
       "end": "2026-11-26",
-      "days_left": 7
+      "days_left": 6
     },
     {
       "code": "605255",
@@ -41,7 +41,7 @@
       "market": "SH",
       "start": "2026-11-19",
       "end": "2026-12-02",
-      "days_left": 13
+      "days_left": 12
     }
   ]
 }
