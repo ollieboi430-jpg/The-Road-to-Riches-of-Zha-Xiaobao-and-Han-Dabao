@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-11-24T06:29:13.901737+08:00",
+  "updated_at": "2026-11-25T03:01:16.933646+08:00",
   "source": "mobappconfig.securities.eastmoney.com/emcfg/stock_monitor.json",
-  "count": 5,
+  "count": 6,
   "data": [
     {
       "code": "600825",
@@ -9,7 +9,7 @@
       "market": "SH",
       "start": "2026-11-13",
       "end": "2026-11-26",
-      "days_left": 2
+      "days_left": 1
     },
     {
       "code": "920575",
@@ -17,7 +17,7 @@
       "market": "BJ",
       "start": "2026-11-23",
       "end": "2026-11-27",
-      "days_left": 3
+      "days_left": 2
     },
     {
       "code": "920090",
@@ -25,7 +25,7 @@
       "market": "BJ",
       "start": "2026-11-23",
       "end": "2026-11-27",
-      "days_left": 3
+      "days_left": 2
     },
     {
       "code": "920023",
@@ -33,7 +33,7 @@
       "market": "BJ",
       "start": "2026-11-23",
       "end": "2026-11-27",
-      "days_left": 3
+      "days_left": 2
     },
     {
       "code": "605255",
@@ -41,7 +41,15 @@
       "market": "SH",
       "start": "2026-11-19",
       "end": "2026-12-02",
-      "days_left": 8
+      "days_left": 7
+    },
+    {
+      "code": "002148",
+      "name": "北纬科技",
+      "market": "SZ",
+      "start": "2026-11-25",
+      "end": "2026-12-08",
+      "days_left": 13
     }
   ]
 }
